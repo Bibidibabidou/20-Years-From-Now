@@ -1,462 +1,406 @@
-(()=>{
+{
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const TAU = Math.PI*2;
-const DATA = {
-  dates:["25 Jun","9 Jul","23 Jul","13 Aug","27 Aug","10 Sep","24 Sep","8 Oct"],
-  already:[28,32,35,38,36,39,42,43],
-  likely:[49,45,44,40,43,40,37,34]
+const TAU = Math.PI * 2;
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const ease = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+const lerp = (a, b, k) => a + (b - a) * k;
+const MONO = '"Geist Mono", ui-monospace, monospace';
+
+/* survey data: Americans on AI, item "AI systems behaving in ways their developers did not intend" */
+const D = {
+  dates: ['25 Jun', '9 Jul', '23 Jul', '13 Aug', '27 Aug', '10 Sep', '24 Sep', '8 Oct'],
+  already: [28, 32, 35, 38, 36, 39, 42, 43],
+  likely: [49, 45, 44, 40, 43, 40, 37, 34]
 };
-const ANS = {
-  already:{label:"Already happening", year:0.3, group:"a"},
-  likely:{label:"Likely to happen", year:9, group:"l"},
-  unlikely:{label:"Unlikely to happen", year:23, group:"u"},
-  notatall:{label:"Not at all likely to happen", year:26, group:"u"},
-  notsure:{label:"Not sure", year:24.5, group:"u"}
-};
-const ACTS = {1:"Something’s off",2:"Naming it",3:"It’s already here",4:"Who decides?",5:"Your turn"};
-const lerpArr=(arr,w)=>{const a=Math.floor(w),b=Math.min(arr.length-1,a+1);return arr[a]+(arr[b]-arr[a])*(w-a)};
-const $=s=>document.querySelector(s);
+/* sample answers replayed in act 5 (not live) */
+const VIS = [
+  { n: 'Visitor 312', y: 2027, c: '#a9b8ff', t: 0.6, off: 4 },
+  { n: 'Visitor 313', y: 2026, c: '#e8ebf1', t: 2.1, off: 3 },
+  { n: 'Visitor 315', y: 2033, c: '#f2a7c3', t: 3.5, off: -4 },
+  { n: 'Visitor 318', y: 2029, c: '#7fd3c3', t: 5.0, off: 5 }
+];
+const ACTS = { 1: 'Act 01 · You', 2: 'Act 02 · It already happened', 3: 'Act 03 · What Americans think', 4: 'Act 04 · Who decides', 5: 'Act 05 · Your next 20 years' };
+const NAVID = { 1: 'you', 2: 'db', 3: 'tracker', 4: 'agency', 5: 'future' };
+const CTL = [[0.4, 'Wait.'], [1.6, 'You’re not moving it anymore.'], [3.4, 'It’s copying you.'], [7.2, 'Nobody asked it to.']];
+const ANSY = { a: 0.3, l: 9, u: 24 };
 
-/* ---------------- canvas field ---------------- */
-const cv=$('#field'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1;
-const geo={cx:0,cy:0,R0:0,Rmax:0,tilt:.46};
-const chart={x0:0,yb:0,s:6,gap:13,colW:30};
-const N=1000;
-const perm=[...Array(N).keys()];
-for(let i=N-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[perm[i],perm[j]]=[perm[j],perm[i]]}
-const dots=[];
-for(let i=0;i<N;i++) dots.push({rank:perm[i],th:Math.random()*TAU,u:Math.random(),j:Math.random(),x:0,y:0,gx:0,gy:0,ph:Math.random()*TAU});
-const rOfYear=y=>geo.R0*1.7 + (y/20)*(geo.Rmax-geo.R0*1.7);
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1, desk = true;
+let seed = 11;
+const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+const N = 1000;
+const perm = [...Array(N).keys()];
+for (let i = N - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
+const dots = perm.map(r => ({ rank: r, fx: rnd(), fy: rnd(), ph: rnd() * TAU, x: 0, y: 0, a: 0, tx: 0, ty: 0, ta: 0, r: 1.3, tr: 1.3, col: 'w', z: 1 }));
 
-function layout(){
-  const desk=W>=900;
-  if(desk){geo.cx=W*.62;geo.cy=H*.52;geo.Rmax=Math.min(W*.24,H*.62)}
-  else{geo.cx=W/2;geo.cy=H*.29;geo.Rmax=Math.min(W*.33,H*.4)}
-  geo.R0=geo.Rmax*.075;
-  let ax0,ax1,top,yb;
-  if(desk){ax0=W*.43;ax1=W*.8;top=H*.2;yb=H*.8}else{ax0=48;ax1=W-16;top=H*.12;yb=H*.46}
-  const units=8*5+7*2.4;
-  chart.s=Math.min((ax1-ax0)/units,(yb-top)/20);
-  chart.colW=5*chart.s;chart.gap=2.4*chart.s;
-  chart.x0=(ax0+ax1)/2-units*chart.s/2;chart.yb=yb;
-  const cols=Math.round(Math.sqrt(N*W/H)), rows=Math.ceil(N/cols);
-  const sx=W/cols, sy=H/rows;
-  dots.forEach((d,i)=>{d.gx=((i%cols)+.5)*sx;d.gy=(Math.floor(i/cols)+.5)*sy});
+const S = { scene: '', act: 0, p: 0, te: 0, mx: 0, my: 0, mouse: false, touched: false, ans: null, ag: null, year: 2030, pins: [], oa: 0, intro: false };
+const you = { x: 0, y: 0, r: 7 };
+
+const spr = document.createElement('canvas'); spr.width = spr.height = 40;
+{
+  const s = spr.getContext('2d'), g = s.createRadialGradient(20, 20, 0, 20, 20, 20);
+  g.addColorStop(0, 'rgba(225,232,255,1)'); g.addColorStop(.16, 'rgba(140,160,255,.95)');
+  g.addColorStop(.4, 'rgba(74,99,255,.3)'); g.addColorStop(1, 'rgba(74,99,255,0)');
+  s.fillStyle = g; s.fillRect(0, 0, 40, 40);
 }
-function resize(){
-  DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;
-  cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);
-  const first=!dots[0].x;layout();
-  if(first) dots.forEach(d=>{d.x=d.gx;d.y=d.gy});
+
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight; desk = W >= 700;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (!you.x) { you.x = W / 2; you.y = H * .42; S.mx = you.x; S.my = you.y; dots.forEach(d => { d.x = you.x; d.y = you.y; }); }
+  placeYear();
 }
-addEventListener('resize',resize);resize();
 
-const spr=document.createElement('canvas');spr.width=spr.height=40;
-{const s=spr.getContext('2d'),g=s.createRadialGradient(20,20,0,20,20,20);
-g.addColorStop(0,'rgba(220,228,255,1)');g.addColorStop(.12,'rgba(150,170,255,.95)');g.addColorStop(.35,'rgba(74,99,255,.35)');g.addColorStop(1,'rgba(74,99,255,0)');
-s.fillStyle=g;s.fillRect(0,0,40,40);}
-
-/* state */
-let scene='intro', modeT=0, dim=1, dimT=1, oa=0, wa=0;
-let Wcur=0, Wtarget=0;
-let push=0, pushV=0, dragging=false, attempts=0;
-let answer=null;
-const you={on:false,x:0,y:0};
-const pointer={x:-999,y:-999,moved:false};
-const rogue={x:0,y:0,vx:0,vy:0,state:'wait',t0:0,trail:[],alive:!RM};
-const t0=performance.now();
-
-const SC={
-  intro:{m:0,d:1}, reveal:{m:0,d:.55}, question:{m:0,d:.35},
-  orbit:{m:1,d:1,w:0}, time:{m:2,d:1,w:'user'}, groups:{m:1,d:.16,w:7},
-  push:{m:1,d:1,w:7}, agency:{m:1,d:.14,w:7}, future:{m:1,d:.12,w:7}, room:{m:1,d:.1,w:7}, end:{m:1,d:.45,w:7}
-};
-
-function catOf(d,w){
-  const A=lerpArr(DATA.already,w)*10, L=A+lerpArr(DATA.likely,w)*10;
-  return d.rank<A?0:d.rank<L?1:2;
+/* ---------- geometry ---------- */
+const field = (d, t) => [W * (0.04 + d.fx * 0.92) + Math.sin(t * 0.3 + d.ph) * 5, H * (0.1 + d.fy * 0.84) + Math.cos(t * 0.25 + d.ph) * 5];
+const dbBox = () => desk ? { x0: W * .08, x1: W * .92, y0: H * .52, y1: H * .9 } : { x0: W * .06, x1: W * .94, y0: H * .58, y1: H * .86 };
+const ibBox = () => desk ? { x0: W * .22, x1: W * .78, y0: H * .52, y1: H * .88 } : { x0: W * .1, x1: W * .9, y0: H * .69, y1: H * .86 };
+function orbitGeo() {
+  const g = desk ? { cx: W * .5, cy: H * .33, Rmax: Math.min(W * .26, H * .34) } : { cx: W * .5, cy: H * .24, Rmax: W * .27 };
+  g.tilt = .46; g.R0 = g.Rmax * .075; return g;
 }
-function ellR(px,py){const dx=px-geo.cx,dy=(py-geo.cy)/geo.tilt;return Math.hypot(dx,dy)}
+const rOf = (g, y) => g.R0 * 1.7 + (y / 20) * (g.Rmax - g.R0 * 1.7);
+function waveGeo() {
+  const b = desk ? { x0: W * .1, x1: W * .9, y0: H * .42, y1: H * .87 } : { x0: W * .05, x1: W * .95, y0: H * .53, y1: H * .84 };
+  const units = 8 * 5 + 7 * 2.6, s = Math.min((b.x1 - b.x0) / units, (b.y1 - b.y0) / 20);
+  return { s, x0: (b.x0 + b.x1) / 2 - units * s / 2, yb: b.y1, gap: 2.6 * s };
+}
+const colX = (g, c) => g.x0 + c * (5 * g.s + g.gap);
+function clusters() {
+  const RA = desk ? Math.min(W * .17, H * .2) : Math.min(W * .24, H * .15);
+  const c = RA / Math.sqrt(670);
+  const ctr = desk ? [[.34, .52], [.62, .5], [.83, .58]] : [[.33, .42], [.76, .3], [.76, .62]];
+  const n = [670, 160, 170];
+  return ctr.map((p, i) => ({ x: W * p[0], y: H * p[1], R: c * Math.sqrt(n[i]), c }));
+}
+const timeline = () => desk ? { x0: W * .1, x1: W * .9, y: H * .56 } : { x0: W * .08, x1: W * .92, y: H * .56 };
+const yearX = (tl, y) => tl.x0 + (y - 2026) / 20 * (tl.x1 - tl.x0);
 
-function frame(now){
-  const t=(now-t0)/1000;
-  const k=RM?1:.075;
-  oa+=((modeT===1?1:0)-oa)*(RM?1:.05);
-  wa+=((modeT===2?1:0)-wa)*(RM?1:.05);
-  dim+=(dimT-dim)*(RM?1:.06);
-  Wcur+=(Wtarget-Wcur)*(RM?1:.09);
-  if(!dragging){pushV+=-push*.018;pushV*=.9;push+=pushV;if(Math.abs(push)<.05&&Math.abs(pushV)<.05){push=0;pushV=0}}
-  ctx.clearRect(0,0,W,H);
-  const spin=RM?0:1;
-  const {cx,cy,tilt}=geo;
+/* ---------- pointer ---------- */
+addEventListener('pointermove', e => { if (e.pointerType !== 'touch' && (e.clientX || e.clientY)) { S.mx = e.clientX; S.my = e.clientY; S.mouse = true; } }, { passive: true });
+addEventListener('pointerdown', e => { if (e.pointerType === 'touch') { S.mx = e.clientX; S.my = e.clientY; S.touched = true; } }, { passive: true });
+if (matchMedia('(hover: none)').matches) $('#hint').textContent = 'One dot. It follows you. Tap anywhere, then scroll.';
+const follow = (fx, fy) => (S.mouse || S.touched) ? [S.mx, S.my] : [fx, fy];
 
-  /* rings */
-  if(oa>.02){
-    const ra=oa*dim;
-    ctx.lineWidth=1;
-    [[5,'2031'],[10,'2036'],[15,'2041'],[20,'2046']].filter(([y])=>W>=900||y===20).forEach(([y,l])=>{
-      const r=rOfYear(y);
-      ctx.strokeStyle=`rgba(232,235,241,${.09*ra})`;
-      ctx.beginPath();ctx.ellipse(cx,cy,r,r*tilt,0,0,TAU);ctx.stroke();
-      ctx.fillStyle=`rgba(140,147,161,${.9*ra})`;ctx.font='10px "Geist Mono", ui-monospace, monospace';
-      ctx.fillText(l,cx+r+8,cy+3);
-    });
-    // dashed ring: already + likely
-    const rb=rOfYear(20.8);
-    ctx.setLineDash([2,5]);ctx.strokeStyle=`rgba(217,244,95,${.55*ra})`;
-    ctx.beginPath();ctx.ellipse(cx,cy,rb,rb*tilt,0,0,TAU);ctx.stroke();ctx.setLineDash([]);
-    const both=Math.round(lerpArr(DATA.already,Wcur)+lerpArr(DATA.likely,Wcur));
-    ctx.fillStyle=`rgba(217,244,95,${.9*ra})`;ctx.textAlign='center';
-    ctx.fillText(`ALREADY + LIKELY · ${both}%`,cx,cy-rb*tilt-10);
-    ctx.fillStyle=`rgba(140,147,161,${.8*ra})`;
-    ctx.fillText('UNLIKELY OR NOT SURE',cx,cy+rOfYear(26)*tilt+18);
-    ctx.textAlign='left';
+/* ---------- scroll lock during the takeover ---------- */
+let locked = false, lockY = 0, ctlDone = false;
+const stopEv = e => { if (locked) e.preventDefault(); };
+const KEYS = [' ', 'ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End'];
+const stopKey = e => { if (locked && KEYS.includes(e.key)) e.preventDefault(); };
+addEventListener('wheel', stopEv, { passive: false });
+addEventListener('touchmove', stopEv, { passive: false });
+addEventListener('keydown', stopKey);
+function lock(sec) { locked = true; lockY = sec.offsetTop; scrollTo(0, lockY); document.documentElement.style.overflow = 'hidden'; }
+function unlock() { locked = false; ctlDone = true; document.documentElement.style.overflow = ''; }
+
+/* ---------- scenes ---------- */
+const secs = [...document.querySelectorAll('section[data-scene]')];
+const navBtns = [...document.querySelectorAll('.nav button')];
+const actEl = $('#act');
+let lastCap = '', scrambling = false;
+function enter(sec, t) {
+  const prev = S.scene;
+  S.scene = sec.dataset.scene; S.te = t; document.body.dataset.scene = S.scene;
+  secs.forEach(x => x.classList.toggle('on', x === sec));
+  const a = +sec.dataset.act;
+  if (a !== S.act) { S.act = a; actEl.textContent = ACTS[a]; navBtns.forEach(b => b.toggleAttribute('aria-current', false)); const nb = navBtns.find(b => b.dataset.go === NAVID[a]); if (nb) nb.setAttribute('aria-current', 'step'); }
+  document.body.classList.remove('ghosting');
+  ['#ib2', '#db2', '#bb1', '#bb2', '#bb3'].forEach(s => $(s).classList.remove('show'));
+  lastCap = ''; $('#ctlcap').textContent = '';
+  if (S.scene === 'control' && prev === 'you' && !ctlDone && !RM) lock(sec);
+  if (S.scene === 'you' && replay) { replay = false; introT = t; S.intro = false; $('#youcap').classList.remove('in'); }
+  if (S.scene === 'future') { S.pins = []; VIS.forEach(v => { v.sx = W * (0.2 + rnd() * 0.6); v.sy = H * (0.82 + rnd() * 0.1); }); }
+}
+const setText = (el, s) => { if (el.textContent !== s) el.textContent = s; };
+const scramble = s => s.replace(/[A-Za-z]/g, c => Math.random() < .5 ? String.fromCharCode(97 + Math.floor(Math.random() * 26)) : c);
+
+function cursor(x, y, col, label, alpha) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y);
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 19); ctx.lineTo(5, 14.5); ctx.lineTo(8.5, 22); ctx.lineTo(11.6, 20.6); ctx.lineTo(8.2, 13.4); ctx.lineTo(14.5, 13.4); ctx.closePath();
+  ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 1.3; ctx.strokeStyle = '#050608'; ctx.stroke();
+  if (label) {
+    ctx.font = '12px ' + MONO;
+    const w = ctx.measureText(label).width + 14;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(14, 22, w, 22, 6); ctx.fill();
+    ctx.fillStyle = '#050608'; ctx.fillText(label, 21, 37);
   }
+  ctx.restore();
+}
 
-  const w=Wcur;
-  const back=[],front=[];
-  for(let i=0;i<N;i++){
-    const d=dots[i];
-    let tx,ty,cat=-1,z=1;
-    d.rev=true;
-    if(modeT===2){
-      if(d.rank>=800){cat=-2;tx=d.x;ty=d.y}
-      else{
-        const c=d.rank%8, kk=Math.floor(d.rank/8), A=DATA.already[c], L=A+DATA.likely[c];
-        tx=chart.x0+c*(chart.colW+chart.gap)+(kk%5+.5)*chart.s;
-        ty=chart.yb-(Math.floor(kk/5)+.5)*chart.s;
-        cat=kk<A?0:kk<L?1:2;d.rev=c<=w+.02;
-      }
-    }else if(modeT>.5){
-      cat=catOf(d,w);
-      const yrs=cat===0?.15+d.j*.55:cat===1?1+d.u*19:21.6+d.u*5.4;
-      let r=rOfYear(yrs);
-      if(cat===0) r+=push*(.75+d.j*.5);
-      const sp=cat===0?.16:.07/(1+yrs*.06);
-      const a=d.th+t*sp*spin;
-      tx=cx+Math.cos(a)*r;ty=cy+Math.sin(a)*r*tilt;z=Math.sin(a);
-    }else{
-      tx=d.gx;ty=d.gy;
+function orbitTargets(g, w, t) {
+  const A = lerpArr(D.already, w) * 10, L = A + lerpArr(D.likely, w) * 10;
+  for (const d of dots) {
+    const cat = d.rank < A ? 0 : d.rank < L ? 1 : 2;
+    const yrs = cat === 0 ? .15 + d.fy * .55 : cat === 1 ? 1 + d.fx * 19 : 21.6 + d.fx * 5.4;
+    const r = rOf(g, yrs), a = d.ph + t * (RM ? 0 : cat === 0 ? .16 : .07 / (1 + yrs * .06));
+    d.tx = g.cx + Math.cos(a) * r; d.ty = g.cy + Math.sin(a) * r * g.tilt; d.z = Math.sin(a);
+    d.col = cat === 0 ? 'b' : cat === 1 ? 'w' : 'g'; d.ta = cat === 0 ? (d.z < 0 ? .55 : 1) : cat === 1 ? (d.z < 0 ? .45 : .85) : .7; d.tr = cat === 0 ? 1.8 : 1.3;
+  }
+}
+function lerpArr(arr, w) { const a = Math.floor(w), b = Math.min(arr.length - 1, a + 1); return arr[a] + (arr[b] - arr[a]) * (w - a); }
+
+function drawOrbitBack(g, w, alpha) {
+  ctx.lineWidth = 1; ctx.font = '10px ' + MONO;
+  [[5, '2031'], [10, '2036'], [15, '2041'], [20, '2046']].forEach(([y, l]) => {
+    if (!desk && y !== 20 && y !== 10) return;
+    const r = rOf(g, y);
+    ctx.strokeStyle = `rgba(232,235,241,${.1 * alpha})`; ctx.beginPath(); ctx.ellipse(g.cx, g.cy, r, r * g.tilt, 0, 0, TAU); ctx.stroke();
+    ctx.fillStyle = `rgba(140,147,161,${.9 * alpha})`; ctx.fillText(l, g.cx + r + 8, g.cy + 3);
+  });
+  const rb = rOf(g, 20.8), both = Math.round(lerpArr(D.already, w) + lerpArr(D.likely, w));
+  ctx.setLineDash([2, 5]); ctx.strokeStyle = `rgba(217,244,95,${.55 * alpha})`;
+  ctx.beginPath(); ctx.ellipse(g.cx, g.cy, rb, rb * g.tilt, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  ctx.textAlign = 'center'; ctx.fillStyle = `rgba(217,244,95,${.9 * alpha})`;
+  ctx.fillText(`ALREADY + LIKELY · ${both}%`, g.cx, g.cy - rb * g.tilt - 10);
+  ctx.textAlign = 'left';
+}
+function drawSphere(g, alpha) {
+  const R = g.R0 * 1.05;
+  const h = ctx.createRadialGradient(g.cx, g.cy, R * .8, g.cx, g.cy, R * 4);
+  h.addColorStop(0, `rgba(74,99,255,${.35 * alpha})`); h.addColorStop(1, 'rgba(74,99,255,0)');
+  ctx.fillStyle = h; ctx.beginPath(); ctx.arc(g.cx, g.cy, R * 4, 0, TAU); ctx.fill();
+  const s = ctx.createRadialGradient(g.cx - R * .35, g.cy - R * .4, R * .1, g.cx, g.cy, R);
+  s.addColorStop(0, `rgba(235,238,245,${alpha})`); s.addColorStop(.6, `rgba(120,126,140,${alpha})`); s.addColorStop(1, `rgba(30,33,40,${alpha})`);
+  ctx.fillStyle = s; ctx.beginPath(); ctx.arc(g.cx, g.cy, R, 0, TAU); ctx.fill();
+  ctx.font = '10px ' + MONO; ctx.textAlign = 'center'; ctx.fillStyle = `rgba(232,235,241,${.9 * alpha})`;
+  ctx.fillText('NOW · 2026', g.cx, g.cy + R + 16); ctx.textAlign = 'left';
+}
+
+function drawDot(d) {
+  if (d.a < .01) return;
+  if (d.col === 'b') { const z = d.r * 6; ctx.globalAlpha = d.a; ctx.drawImage(spr, d.x - z / 2, d.y - z / 2, z, z); ctx.globalAlpha = 1; return; }
+  ctx.fillStyle = d.col === 'b2' ? `rgba(169,184,255,${d.a})` : d.col === 'g' ? `rgba(140,147,161,${d.a * .5})` : `rgba(232,235,241,${d.a})`;
+  ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, TAU); ctx.fill();
+}
+
+let introT = null, replay = false;
+function frame(now) {
+  const t = now / 1000;
+  if (introT === null && document.visibilityState === 'visible') introT = t;
+  let act = secs[0];
+  for (const s of secs) { const r = s.getBoundingClientRect(); if (r.top <= H * .5 && r.bottom > H * .5) { act = s; const span = r.height - H; S.p = span > 0 ? clamp(-r.top / span, 0, 1) : 0; break; } }
+  if (act.dataset.scene !== S.scene) enter(act, t);
+  if (locked && Math.abs(scrollY - lockY) > 1) scrollTo(0, lockY);
+  const el = RM ? 99 : t - S.te;
+  const sc = S.scene;
+  let yx = you.x, yy = you.y, yr = 4.5, ghost = null, orbit = null, ow = 0, fast = false, wrap = false;
+
+  if (sc === 'you') {
+    const e0 = RM || introT === null ? 9 : t - introT;
+    const big = Math.min(W, H) * .34;
+    if (e0 < 1.3) { yx = W / 2; yy = H * .45; yr = big * (1 + .025 * Math.sin(t * 3)); you.x = yx; you.y = yy; you.r = yr; }
+    else if (e0 < 3.1) { yx = W / 2; yy = H * .45; yr = lerp(big, 7, ease((e0 - 1.3) / 1.8) ** .7); you.x = yx; you.y = yy; you.r = yr; }
+    else { [yx, yy] = follow(W / 2, H * .42 + Math.sin(t * 1.4) * 6); yr = 7; fast = e0 > 3.8; }
+    const capIn = RM || (introT !== null && t - introT > 3.4);
+    if (capIn !== S.intro) { S.intro = capIn; $('#youcap').classList.toggle('in', capIn); }
+    for (const d of dots) { d.tx = you.x; d.ty = you.y; d.ta = 0; d.tr = 1.3; d.col = 'w'; }
+  } else if (sc === 'control') {
+    if (el < .8 && !RM) { [yx, yy] = follow(W / 2, H * .42); fast = true; }
+    else {
+      const b = RM ? 1 : ease((el - .8) / 1.1);
+      const ax = W * (.5 + .3 * Math.sin(el * .8 + .6)), ay = H * (.4 + .18 * Math.sin(el * 1.25));
+      const [sx, sy] = follow(W / 2, H * .42);
+      ghost = [lerp(sx, ax, b), lerp(sy, ay, b)]; yx = ghost[0] + 4; yy = ghost[1] - 10; fast = true;
     }
-    d.x+=(tx-d.x)*k;d.y+=(ty-d.y)*k;
-    d.cat=cat;d.z=z;
-    (z<0?back:front).push(d);
-  }
-  const drawDot=(d)=>{
-    if(d.cat===-2)return;
-    if(modeT===2&&d.cat>=0){
-      const s=chart.s;
-      if(!d.rev){ctx.fillStyle=`rgba(140,147,161,${.16*dim})`;ctx.beginPath();ctx.arc(d.x,d.y,s*.2,0,TAU);ctx.fill();return}
-      if(d.cat===0){const z=s*1.7;ctx.globalAlpha=dim;ctx.drawImage(spr,d.x-z/2,d.y-z/2,z,z);ctx.globalAlpha=1}
-      else{ctx.fillStyle=d.cat===1?`rgba(232,235,241,${.85*dim})`:`rgba(140,147,161,${.4*dim})`;ctx.beginPath();ctx.arc(d.x,d.y,s*(d.cat===1?.24:.2),0,TAU);ctx.fill()}
-      return;
+    document.body.classList.toggle('ghosting', !!ghost && S.mouse && !RM);
+    const n = RM ? N : el < 2.8 ? 0 : Math.floor(N * ease((el - 2.8) / 4.2));
+    for (const d of dots) {
+      if (d.rank < n) { const f = field(d, t); d.tx = f[0]; d.ty = f[1]; d.ta = .7; } else { d.tx = you.x; d.ty = you.y; d.ta = 0; }
+      d.tr = 1.3; d.col = 'w';
     }
-    if(d.cat===-1){
-      const lowBlue=Math.max(0,(d.y/H-.45)/.55);
-      const tw=RM?.5:.5+.5*Math.sin(t*1.3+d.ph);
-      const a=(.16+.22*tw+lowBlue*.5)*dim;
-      ctx.fillStyle=lowBlue>.05?`rgba(${200-lowBlue*60|0},${210-lowBlue*40|0},255,${a})`:`rgba(232,235,241,${a})`;
-      ctx.fillRect(d.x-.8,d.y-.8,1.6,1.6);
-    }else if(d.cat===0){
-      const s=d.z<0?8:11;ctx.globalAlpha=dim*(d.z<0?.55:1);
-      ctx.drawImage(spr,d.x-s/2,d.y-s/2,s,s);ctx.globalAlpha=1;
-    }else if(d.cat===1){
-      ctx.fillStyle=`rgba(232,235,241,${(d.z<0?.4:.8)*dim})`;ctx.fillRect(d.x-.8,d.y-.8,1.7,1.7);
-    }else{
-      ctx.fillStyle=`rgba(140,147,161,${(d.z<0?.18:.36)*dim})`;ctx.fillRect(d.x-.7,d.y-.7,1.4,1.4);
+    let cap = ''; for (const c of CTL) if (el >= c[0]) cap = c[1];
+    if (cap !== lastCap) { lastCap = cap; $('#ctlcap').textContent = cap; }
+    let log = '';
+    if (el > 1) log += '> pointer: taken over\n';
+    if (el > 2.8) log += `> copying you… ${Math.max(1, n)} / 1000\n`;
+    if (el > 7.2) log += '> done. nobody asked.\n';
+    if (el > 8.4) log += '> scrolling: returned to you';
+    setText($('#ctllog'), log);
+    if (locked && el > 8.4) unlock();
+    if (el > 1 && el < 2.6) { scrambling = true; actEl.textContent = scramble(ACTS[1]); } else if (scrambling) { scrambling = false; actEl.textContent = ACTS[1]; }
+  } else if (sc === 'db') {
+    const g = dbBox(), units = 49 + 4 * 1.5, dx = (g.x1 - g.x0) / units, dy = (g.y1 - g.y0) / 19;
+    const wipe = el < 2.4 ? -1 : g.x0 + (el - 2.4) / 1.8 * (g.x1 - g.x0 + 40);
+    let left = 0;
+    for (const d of dots) {
+      const row = Math.floor(d.rank / 50), col = d.rank % 50;
+      const x = g.x0 + (col + Math.floor(col / 10) * 1.5) * dx, y = g.y0 + row * dy;
+      d.tr = Math.min(2.4, dx * .3); d.col = row === 0 ? 'b2' : 'w'; d.tx = x;
+      if (wipe >= x) { d.ty = H + 40 + d.fy * 80; d.ta = 0; } else { d.ty = y; d.ta = .75; left++; }
     }
-  };
-  back.forEach(drawDot);
-
-  /* sphere: now */
-  if(oa>.02){
-    const R=geo.R0*1.05+push*.04, a=oa*dim;
-    const g=ctx.createRadialGradient(cx-R*.35,cy-R*.4,R*.1,cx,cy,R);
-    g.addColorStop(0,`rgba(235,238,245,${a})`);g.addColorStop(.6,`rgba(120,126,140,${a})`);g.addColorStop(1,`rgba(30,33,40,${a})`);
-    const h=ctx.createRadialGradient(cx,cy,R*.8,cx,cy,R*4);
-    h.addColorStop(0,`rgba(74,99,255,${.35*a})`);h.addColorStop(1,'rgba(74,99,255,0)');
-    ctx.fillStyle=h;ctx.beginPath();ctx.arc(cx,cy,R*4,0,TAU);ctx.fill();
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,R,0,TAU);ctx.fill();
-    ctx.fillStyle=`rgba(232,235,241,${.9*a})`;ctx.font='10px "Geist Mono", ui-monospace, monospace';ctx.textAlign='center';
-    ctx.fillText('NOW · 2026',cx,cy+R+16);ctx.textAlign='left';
-  }
-  front.forEach(drawDot);
-
-  /* wave chart overlay */
-  if(wa>.02){
-    const a=wa*dim, s=chart.s, yb=chart.yb, last=Math.floor(w+.02), cur=last;
-    const cxOf=c=>chart.x0+c*(chart.colW+chart.gap)+chart.colW/2;
-    const yOf=v=>yb-v/5*s;
-    ctx.font='10px "Geist Mono", ui-monospace, monospace';
-    // axis
-    ctx.strokeStyle=`rgba(232,235,241,${.18*a})`;ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(chart.x0-8,yb+2);ctx.lineTo(cxOf(7)+chart.colW/2+8,yb+2);ctx.stroke();
-    ctx.fillStyle=`rgba(140,147,161,${a})`;ctx.textAlign='right';
-    [[0,'0%'],[50,'50%'],[100,'100%']].forEach(([v,l])=>ctx.fillText(l,chart.x0-12,yOf(v)+3));
-    // dates
-    ctx.textAlign='center';
-    DATA.dates.forEach((d,c)=>{
-      if(W<900&&c!==0&&c!==7&&c!==cur)return;
-      ctx.fillStyle=c===cur?`rgba(232,235,241,${a})`:`rgba(140,147,161,${(c<=last?.9:.4)*a})`;
-      ctx.fillText(d.toUpperCase(),cxOf(c),yb+20);
-    });
-    // lines through revealed waves
-    const line=(arr,style,dash,width)=>{
-      ctx.setLineDash(dash);ctx.strokeStyle=style;ctx.lineWidth=width;ctx.beginPath();
-      for(let c=0;c<=last;c++){const x=cxOf(c),y=yOf(arr(c));c?ctx.lineTo(x,y):ctx.moveTo(x,y)}
-      ctx.stroke();ctx.setLineDash([]);
-    };
-    line(c=>DATA.already[c]+DATA.likely[c],`rgba(217,244,95,${.9*a})`,[3,4],1.2);
-    line(c=>DATA.already[c],`rgba(169,184,255,${a})`,[],1.6);
-    // labels on the current wave
-    const A=DATA.already[cur], B=A+DATA.likely[cur], xr=cxOf(cur)+chart.colW/2+8;
-    if(W>=900){ctx.textAlign='left';ctx.font='500 12px "Geist Mono", ui-monospace, monospace';
-    ctx.fillStyle=`rgba(169,184,255,${a})`;ctx.fillText(`${A}% ALREADY`,xr,yOf(A)+4);
-    ctx.fillStyle=`rgba(217,244,95,${a})`;ctx.fillText(`${B}% ALREADY + LIKELY`,xr,yOf(B)-6);
+    [yx, yy] = follow(g.x1 - 20, g.y0 - 30); fast = true;
+    if (el > 4.4) $('#db2').classList.add('show');
+    setText($('#dblog'), wipe < 0 ? '> code freeze active\n> 1,206 executives · 1,196 companies' : left > 0 ? `> deleting… ${Math.round(left * 1.206).toLocaleString('en')} records left` : '> 0 records left');
+  } else if (sc === 'inbox') {
+    const g = ibBox(), dx = (g.x1 - g.x0) / 19, dy = (g.y1 - g.y0) / 11;
+    const gone = el < 1.8 ? 0 : Math.min(205, Math.floor((el - 1.8) * 48));
+    for (const d of dots) {
+      if (d.rank >= 240) { d.ta = 0; continue; }
+      const row = Math.floor(d.rank / 20), col = d.rank % 20, key = (d.rank * 97) % 240;
+      d.tr = Math.min(3.4, dx * .2); d.col = 'w'; d.tx = g.x0 + col * dx;
+      if (key < gone) { d.ty = g.y0 + row * dy + 24; d.ta = 0; } else { d.ty = g.y0 + row * dy; d.ta = .8; }
     }
-    ctx.lineWidth=1;
+    [yx, yy] = follow(g.x1 + 24, g.y0); fast = true;
+    if (el > 2.4) $('#bb1').classList.add('show');
+    if (el > 3.4) $('#bb2').classList.add('show');
+    if (el > 4.4) $('#bb3').classList.add('show');
+    if (el > 6.4) $('#ib2').classList.add('show');
+    setText($('#iblog'), el < 1.8 ? '> agent: reading inbox…' : gone < 205 ? `> agent: cleaning inbox\n> deleted ${gone} emails` : '> stopped at the computer\n> 200+ emails deleted');
+  } else if (sc === 'tracker') {
+    const g = desk ? { x0: W * .2, x1: W * .8, y0: H * .48, y1: H * .88 } : { x0: W * .08, x1: W * .92, y0: H * .53, y1: H * .86 };
+    const dx = (g.x1 - g.x0) / 39, dy = (g.y1 - g.y0) / 24;
+    for (const d of dots) { d.tx = g.x0 + (d.rank % 40) * dx; d.ty = g.y0 + Math.floor(d.rank / 40) * dy; d.ta = .75; d.tr = Math.min(2.2, dx * .28); d.col = 'w'; }
+    [yx, yy] = follow(g.x1 + dx * 2, g.y1); fast = true;
+  } else if (sc === 'ask') {
+    const g = orbitGeo();
+    if (!S.ans) { for (const d of dots) { const f = field(d, t); d.tx = f[0]; d.ty = f[1]; d.ta = .28; d.tr = 1.3; d.col = 'w'; } yx = g.cx; yy = g.cy; yr = 7; }
+    else { orbit = g; ow = 0; orbitTargets(g, 0, t); const r = rOf(g, ANSY[S.ans]), a = -.75 + t * .05; yx = g.cx + Math.cos(a) * r; yy = g.cy + Math.sin(a) * r * g.tilt; }
+  } else if (sc === 'waves') {
+    const g = waveGeo(), cur = Math.min(7, Math.floor(S.p * 8.6));
+    for (const d of dots) {
+      if (d.rank >= 800) { d.ta = 0; continue; }
+      const c = d.rank % 8, k = Math.floor(d.rank / 8), A = D.already[c], L = A + D.likely[c];
+      d.tx = colX(g, c) + (k % 5 + .5) * g.s; d.ty = g.yb - (Math.floor(k / 5) + .5) * g.s; d.tr = g.s * .3;
+      if (c > cur) { d.ta = .16; d.col = 'w'; } else { d.col = k < A ? 'b' : k < L ? 'w' : 'g'; d.ta = 1; }
+    }
+    const A = D.already[cur], L = D.likely[cur], grp = S.ans || 'l';
+    const v = grp === 'a' ? A / 2 : grp === 'l' ? A + L / 2 : A + L + (100 - A - L) / 2;
+    yx = colX(g, cur) - g.s * 1.4; yy = g.yb - v / 5 * g.s;
+    const lab = $('#wlab');
+    lab.style.left = clamp(colX(g, cur) + 2.5 * g.s, 50, W - 50) + 'px';
+    lab.style.top = (g.yb - 20 * g.s - 10) + 'px';
+    setText($('#wnum'), A + '%'); setText($('#wdate'), D.dates[cur]);
+    S.wg = { g, cur };
+  } else if (sc === 'agency') {
+    const bx = W / 2, by = H * (desk ? .56 : .54), y0 = by - H * .15, y1 = by + H * .15, span = W + 80, tt = RM ? 0 : t;
+    const sx = (d, sp) => ((d.fx * span + tt * sp * (.7 + d.fy * .6)) % span) - 40;
+    const ring = k => (desk ? 80 : 62) + Math.sqrt(k) * (desk ? 6 : 4.5);
+    for (const d of dots) {
+      const grp = d.rank < 160 ? 's' : d.rank < 830 ? 'c' : 'r';
+      const yy0 = y0 + d.fy * (y1 - y0) + Math.sin(tt * .8 + d.ph) * 6;
+      if (!S.pressed) { d.tx = sx(d, 45); d.ty = yy0; d.ta = .6; d.tr = 1.6; d.col = 'w'; }
+      else if (grp === 'c') { d.tx = sx(d, 110); d.ty = yy0; d.ta = .95; d.tr = 1.7; d.col = 'b'; }
+      else if (grp === 'r') { d.tx = sx(d, 22); d.ty = yy0; d.ta = .45; d.tr = 1.4; d.col = 'g'; }
+      else { const a = d.rank * 2.399963, rr = ring(d.rank); d.tx = bx + Math.cos(a) * rr; d.ty = by + Math.sin(a) * rr * .8; d.ta = 1; d.tr = 2; d.col = 'w'; }
+    }
+    wrap = el > 2;
+    if (S.ag === 'stop') { const a = -1.1, rr = ring(175); yx = bx + Math.cos(a) * rr; yy = by + Math.sin(a) * rr * .8; }
+    else if (S.ag === 'go') { yx = ((tt * 110) % span) - 40; yy = by + H * .06; fast = true; }
+    else { [yx, yy] = follow(bx, by - H * .22); fast = true; }
+  } else if (sc === 'future') {
+    for (const d of dots) { const f = field(d, t); d.tx = f[0]; d.ty = f[1]; d.ta = .08; d.tr = 1.2; d.col = 'w'; }
+    const tl = timeline(); yx = yearX(tl, S.year); yy = tl.y;
+  } else if (sc === 'end') {
+    const g = orbitGeo(); g.cy = H * .9; orbit = g; ow = 7; orbitTargets(g, 7, t); for (const d of dots) d.ta *= .35;
+    [yx, yy] = follow(g.cx + rOf(g, ANSY[S.ans || 'a']), g.cy); fast = true;
   }
 
-  /* the visitor's dot */
-  if(you.on){
-    let tx,ty;
-    if(modeT===2){
-      const c=Math.round(Wcur), A=DATA.already[c], L=DATA.likely[c], g=ANS[answer].group;
-      const v=g==='a'?A/2:g==='l'?A+L/2:A+L+(100-A-L)/2;
-      tx=chart.x0+c*(chart.colW+chart.gap)-chart.s*1.4;ty=chart.yb-v/5*chart.s;
-    }else if(modeT>.5){
-      const y=ANS[answer].year, r=rOfYear(y)+(answer==='already'?push:0), a=-.75+t*.05*spin;
-      tx=cx+Math.cos(a)*r;ty=cy+Math.sin(a)*r*tilt;
-    }else{const b=document.querySelector('#answers .is-on');const rc=b?b.getBoundingClientRect():null;
-      tx=rc?rc.right+18:you.x;ty=rc?rc.top+rc.height/2:you.y;}
-    you.x+=(tx-you.x)*(RM?1:.08);you.y+=(ty-you.y)*(RM?1:.08);
-    const ya=Math.max(.35,dim);
-    ctx.strokeStyle=`rgba(217,244,95,${.35*ya})`;ctx.beginPath();ctx.arc(you.x,you.y,9+Math.sin(t*3)*1.5*spin,0,TAU);ctx.stroke();
-    ctx.fillStyle=`rgba(217,244,95,${ya})`;ctx.beginPath();ctx.arc(you.x,you.y,3.6,0,TAU);ctx.fill();
-    if(modeT===1){ctx.font='10px "Geist Mono", ui-monospace, monospace';ctx.fillText('YOU',you.x+14,you.y-8)}
-    else if(modeT===2){ctx.font='10px "Geist Mono", ui-monospace, monospace';ctx.textAlign='right';ctx.fillText('YOU',you.x-10,you.y+3);ctx.textAlign='left'}
+  /* ---------- move ---------- */
+  const k = RM ? 1 : .075;
+  const yk = RM ? 1 : fast ? .2 : .08;
+  you.x += (yx - you.x) * yk; you.y += (yy - you.y) * yk; you.r += (yr - you.r) * (RM ? 1 : .25);
+  S.oa += ((orbit ? (sc === 'end' ? .35 : 1) : 0) - S.oa) * (RM ? 1 : .05);
+  if (wrap && Math.abs(yx - you.x) > W * .5) you.x = yx;
+  for (const d of dots) { if (wrap && Math.abs(d.tx - d.x) > W * .5) d.x = d.tx; d.x += (d.tx - d.x) * k; d.y += (d.ty - d.y) * k; d.a += (d.ta - d.a) * (RM ? 1 : .08); d.r += (d.tr - d.r) * .1; }
+
+  /* ---------- draw ---------- */
+  ctx.clearRect(0, 0, W, H);
+  if (orbit) {
+    drawOrbitBack(orbit, ow, S.oa);
+    for (const d of dots) if (d.z < 0) drawDot(d);
+    drawSphere(orbit, S.oa);
+    for (const d of dots) if (d.z >= 0) drawDot(d);
+  } else {
+    for (const d of dots) { d.z = 1; drawDot(d); }
   }
 
-  /* the rogue dot (act 1) */
-  if(rogue.alive&&(scene==='intro'||scene==='reveal')){
-    const el=performance.now()-t0;
-    if(rogue.state==='wait'){rogue.x=W*.5;rogue.y=H*.72;if(pointer.moved){rogue.state='follow';rogue.t0=el}else if(el>6500){rogue.state='drift';rogue.vx=.9;rogue.vy=-.5}}
-    if(rogue.state==='follow'){rogue.x+=(pointer.x+16-rogue.x)*.14;rogue.y+=(pointer.y+16-rogue.y)*.14;if(el-rogue.t0>2600){rogue.state='drift';const a=Math.random()*TAU;rogue.vx=Math.cos(a)*.8;rogue.vy=Math.sin(a)*.8-.3}}
-    if(rogue.state==='drift'){rogue.x+=rogue.vx;rogue.y+=rogue.vy;rogue.vx*=1.006;rogue.vy*=1.006;rogue.vx+=Math.sin(el/400)*.02}
-    rogue.trail.push([rogue.x,rogue.y]);if(rogue.trail.length>22)rogue.trail.shift();
-    rogue.trail.forEach(([x,y],i)=>{ctx.fillStyle=`rgba(217,244,95,${i/22*.35})`;ctx.fillRect(x-1,y-1,2,2)});
-    ctx.fillStyle='rgba(217,244,95,1)';ctx.beginPath();ctx.arc(rogue.x,rogue.y,4,0,TAU);ctx.fill();
-    if(rogue.state==='drift'&&(rogue.x<-50||rogue.x>W+50||rogue.y<-50||rogue.y>H+50))rogue.alive=false;
+  ctx.font = '12px ' + MONO;
+  if (sc === 'waves' && S.wg) {
+    const { g, cur } = S.wg, cx = c => colX(g, c) + 2.5 * g.s, y = v => g.yb - v / 5 * g.s;
+    const line = (f, col, dash, w) => { ctx.setLineDash(dash); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); for (let c = 0; c <= cur; c++) c ? ctx.lineTo(cx(c), y(f(c))) : ctx.moveTo(cx(c), y(f(c))); ctx.stroke(); ctx.setLineDash([]); };
+    if (cur > 0) { line(c => D.already[c] + D.likely[c], 'rgba(217,244,95,.9)', [3, 5], 1.4); line(c => D.already[c], 'rgba(169,184,255,1)', [], 2); }
+    ctx.textAlign = 'center';
+    D.dates.forEach((s, c) => { if (!desk && c !== 0 && c !== 7 && c !== cur) return; ctx.fillStyle = c === cur ? '#e8ebf1' : c <= cur ? '#8c93a1' : '#3a404c'; ctx.fillText(s.toUpperCase(), cx(c), g.yb + 22); });
+    ctx.textAlign = 'left';
+  }
+  if (sc === 'future') {
+    const tl = timeline();
+    ctx.strokeStyle = 'rgba(232,235,241,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tl.x0, tl.y); ctx.lineTo(tl.x1, tl.y); ctx.stroke();
+    ctx.textAlign = 'center';
+    [2026, 2031, 2036, 2041, 2046].forEach(y => { if (!desk && (y === 2031 || y === 2041)) return; const x = yearX(tl, y); ctx.fillStyle = 'rgba(232,235,241,.35)'; ctx.fillRect(x - .5, tl.y - 5, 1, 10); ctx.fillStyle = '#8c93a1'; ctx.fillText(y === 2026 ? 'NOW' : String(y), x, tl.y + 26); });
+    S.pins.forEach((p, i) => { const x = yearX(tl, p.y), ly = tl.y - 42 - (i % 2) * 14; ctx.strokeStyle = p.c; ctx.beginPath(); ctx.moveTo(x, tl.y); ctx.lineTo(x, tl.y - 30); ctx.stroke(); ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(x, tl.y - 30, 4, 0, TAU); ctx.fill(); ctx.fillText(String(p.y), x, ly); });
+    ctx.textAlign = 'left';
+    for (const v of VIS) {
+      const u = (el - v.t) / 2.6; if (u < 0) continue;
+      const tx = yearX(tl, v.y), ty = tl.y - 30, wx = yearX(tl, clamp(v.y + v.off, 2026, 2046));
+      let x, y, a = 1;
+      if (u < .6) { const e = ease(u / .6); x = lerp(v.sx, wx, e) + Math.sin(u * 9) * 6; y = lerp(v.sy, ty - 30, e); }
+      else if (u < 1) { const e = ease((u - .6) / .4); x = lerp(wx, tx, e); y = lerp(ty - 30, ty, e); }
+      else { if (!S.pins.includes(v)) S.pins.push(v); const e = ease(u - 1); x = tx + e * 60; y = ty - e * 70; a = 1 - e; }
+      if (a > .02) cursor(x, y, v.c, a > .6 ? v.n : null, a);
+    }
   }
 
-  updateTime();
+  /* ---------- the visitor's dot ---------- */
+  if (you.r > 14) {
+    const hg = ctx.createRadialGradient(you.x, you.y, you.r * .6, you.x, you.y, you.r * 1.8);
+    hg.addColorStop(0, 'rgba(217,244,95,.25)'); hg.addColorStop(1, 'rgba(217,244,95,0)');
+    ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(you.x, you.y, you.r * 1.8, 0, TAU); ctx.fill();
+  } else {
+    ctx.strokeStyle = 'rgba(217,244,95,.35)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(you.x, you.y, you.r * 2.2 + (RM ? 0 : Math.sin(t * 2.6) * 2), 0, TAU); ctx.stroke();
+  }
+  ctx.fillStyle = '#d9f45f'; ctx.beginPath(); ctx.arc(you.x, you.y, you.r, 0, TAU); ctx.fill();
+  const labelled = (sc === 'ask' && S.ans) || sc === 'waves' || (sc === 'agency' && S.ag) || sc === 'future';
+  if (labelled) { ctx.font = '12px ' + MONO; ctx.fillStyle = '#d9f45f'; ctx.textAlign = sc === 'waves' ? 'right' : 'left'; ctx.fillText(sc === 'future' ? 'YOU · ' + S.year : 'YOU', you.x + (sc === 'waves' ? -12 : 12), you.y - 10); ctx.textAlign = 'left'; }
+  if (ghost && !RM) {
+    if (el > 3 && (el % 2.3) < .5) { const q = (el % 2.3) / .5; ctx.strokeStyle = `rgba(232,235,241,${1 - q})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(ghost[0], ghost[1], 6 + q * 22, 0, TAU); ctx.stroke(); }
+    cursor(ghost[0], ghost[1], '#e8ebf1', null, 1);
+  }
+
+  const m = document.documentElement.scrollHeight - H; $('#bar').style.width = (m > 0 ? scrollY / m * 100 : 0) + '%';
   requestAnimationFrame(frame);
 }
+
+/* ---------- inputs ---------- */
+function radio(group, attr, cb) {
+  const bs = [...document.querySelectorAll(group + ' button')];
+  bs.forEach(b => b.addEventListener('click', () => { bs.forEach(x => x.setAttribute('aria-checked', 'false')); b.setAttribute('aria-checked', 'true'); cb(b.dataset[attr]); }));
+}
+radio('#ask .opts', 'a', v => { S.ans = v; $('#placed').textContent = 'In June, 28% of Americans answered “already happening”. Your dot is in the orbit now: the centre is today, the outer ring is 2046.'; });
+radio('#agency .opts', 'g', v => { S.ag = v; });
+$('#stopbtn').addEventListener('click', () => { S.pressed = true; $('#stopbtn').setAttribute('aria-pressed', 'true'); $('#agres').classList.add('show'); });
+const pills = [...document.querySelectorAll('#pills .pill')];
+const picked = () => pills.filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.textContent.trim().toLowerCase());
+pills.forEach(b => b.addEventListener('click', () => {
+  b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+  $('#share').hidden = picked().length === 0; $('#sharefb').textContent = '';
+}));
+$('#share').addEventListener('click', async () => {
+  const list = picked(), say = list.length > 1 ? list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1] : list[0];
+  const url = /^https?:/.test(location.href) ? location.href.split('#')[0] : '';
+  const text = `The future arrived early. For 43% of Americans, AI doing things nobody intended is already happening. I still want a say in ${say}. What about you?`;
+  const fb = $('#sharefb');
+  try { if (navigator.share) { await navigator.share({ title: '20 Years From Now', text, url: url || undefined }); fb.textContent = 'Shared'; return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(url ? text + ' ' + url : text); fb.textContent = 'Copied. Paste it wherever you want to share it.'; }
+  catch (e) { fb.textContent = text; }
+});
+const year = $('#year');
+year.addEventListener('input', () => { S.year = +year.value; $('#youyear').textContent = S.year === 2026 ? 'now' : S.year; year.setAttribute('aria-valuetext', S.year); });
+function placeYear() { const tl = timeline(); year.style.left = (tl.x0 - 12) + 'px'; year.style.width = (tl.x1 - tl.x0 + 24) + 'px'; year.style.top = tl.y + 'px'; }
+
+/* ---------- nav + sources ---------- */
+navBtns.forEach(b => b.addEventListener('click', () => { if (!locked) document.getElementById(b.dataset.go).scrollIntoView({ behavior: RM ? 'auto' : 'smooth' }); }));
+const drawer = $('#drawer'), scrim = $('#scrim'); let back = null;
+const open = () => { back = document.activeElement; drawer.classList.add('open'); scrim.classList.add('open'); $('#dclose').focus(); };
+const close = () => { drawer.classList.remove('open'); scrim.classList.remove('open'); if (back) back.focus(); };
+$('#srcbtn').addEventListener('click', open); $('#srcbtn2').addEventListener('click', open);
+$('#dclose').addEventListener('click', close); scrim.addEventListener('click', close);
+addEventListener('keydown', e => { if (e.key === 'Escape' && drawer.classList.contains('open')) close(); });
+$('#again').addEventListener('click', e => { e.preventDefault(); replay = true; scrollTo({ top: 0, behavior: 'auto' }); });
+
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+addEventListener('resize', resize); resize();
 requestAnimationFrame(frame);
-
-/* ---------------- pointer: hover tooltip + push ---------------- */
-const tip=$('#tip');
-addEventListener('pointermove',e=>{
-  pointer.x=e.clientX;pointer.y=e.clientY;pointer.moved=true;
-  if(dragging){
-    const r=ellR(e.clientX,e.clientY);
-    push=Math.max(0,Math.min(geo.Rmax*1.15,(r-rOfYear(.5))*.82));
-    return;
-  }
-  if(scene==='time'&&e.target===cv){
-    const s=chart.s, c=Math.floor((e.clientX-chart.x0)/(chart.colW+chart.gap)), inCol=(e.clientX-chart.x0)-c*(chart.colW+chart.gap)<=chart.colW;
-    if(c>=0&&c<8&&inCol&&e.clientY<chart.yb+8&&e.clientY>chart.yb-20*s-8){
-      const A=DATA.already[c],L=DATA.likely[c];
-      tip.innerHTML=`${DATA.dates[c]} · already <b>${A}%</b> · likely ${L}% · rest ${100-A-L}%`;tip.style.left=e.clientX+'px';tip.style.top=e.clientY+'px';tip.hidden=false;
-    }else tip.hidden=true;
-  }else if(scene==='orbit'&&e.target===cv){
-    const r=ellR(e.clientX,e.clientY), w=Math.round(Wcur);
-    let txt=null;
-    const a=DATA.already[w], l=DATA.likely[w];
-    if(r<rOfYear(1)) txt=`Already happening · <b>${a}%</b>`;
-    else if(r<rOfYear(20.6)) txt=`Likely to happen · <b>${l}%</b>`;
-    else if(r<rOfYear(28)) txt=`Unlikely or not sure · <b>${100-a-l}%</b>`;
-    if(txt){tip.innerHTML=`${txt} · ${DATA.dates[w]}`;tip.style.left=e.clientX+'px';tip.style.top=e.clientY+'px';tip.hidden=false}else tip.hidden=true;
-  }else tip.hidden=true;
-},{passive:true});
-cv.addEventListener('pointerdown',e=>{
-  if(scene!=='push')return;
-  if(ellR(e.clientX,e.clientY)<rOfYear(4)){dragging=true;document.body.classList.add('dragging');cv.setPointerCapture(e.pointerId);e.preventDefault()}
-});
-const endDrag=()=>{if(!dragging)return;dragging=false;document.body.classList.remove('dragging');registerAttempt()};
-cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
-function registerAttempt(){
-  attempts++;$('#attempts').textContent=attempts;
-  const msgs=["It drifts back.","It drifts back. Again.","Whether we want it or not."];
-  $('#pushmsg').textContent=msgs[Math.min(attempts-1,msgs.length-1)];
 }
-$('#pushbtn').addEventListener('click',()=>{
-  if(RM){registerAttempt();return}
-  let s=performance.now();dragging=true;
-  const target=geo.Rmax*.95;
-  const step=n=>{const p=Math.min(1,(n-s)/700);push=target*(1-Math.pow(1-p,3));if(p<1)requestAnimationFrame(step);else{dragging=false;registerAttempt()}};
-  requestAnimationFrame(step);
-});
-
-/* ---------------- intro typing ---------------- */
-const typed=$('#typed');
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function typeIn(text,speed,cls){
-  const span=document.createElement('span');if(cls)span.className=cls;typed.appendChild(span);
-  for(const ch of text){span.textContent+=ch;await sleep(speed+Math.random()*40)}
-  return span;
-}
-async function intro(){
-  if(RM){typed.innerHTML='In the next 20 years, AI <span class="rogue-word">is…</span>';selfPick();return}
-  await sleep(500);
-  await typeIn('In the next 20 years, AI ',55);
-  const w=await typeIn('will…',70);
-  await sleep(1100);
-  for(let i=w.textContent.length;i>0;i--){w.textContent=w.textContent.slice(0,-1);await sleep(90)}
-  w.remove();
-  await sleep(350);
-  await typeIn('is…',150,'rogue-word');
-  await sleep(1300);
-  selfPick();
-}
-function selfPick(){$('#continue').classList.add('self');$('#selfnote').classList.add('show')}
-intro();
-
-/* ---------------- question ---------------- */
-document.querySelectorAll('#answers .btn').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('#answers .btn').forEach(x=>{x.classList.remove('is-on');x.setAttribute('aria-checked','false')});
-  b.classList.add('is-on');b.setAttribute('aria-checked','true');
-  answer=b.dataset.a;
-  if(!you.on){const rc=b.getBoundingClientRect();you.x=rc.left+rc.width/2;you.y=rc.top+rc.height/2;you.on=true}
-  $('#placed').textContent='Your dot is placed · scroll to meet 1,000 Americans ↓';
-  $('#legend-you-txt').textContent='You: '+ANS[answer].label;
-  updateRoom();
-}));
-document.querySelector('#answers').addEventListener('keydown',e=>{
-  if(!['ArrowDown','ArrowUp'].includes(e.key))return;
-  const bs=[...document.querySelectorAll('#answers .btn')];let i=bs.indexOf(document.activeElement);
-  i=(i+(e.key==='ArrowDown'?1:-1)+bs.length)%bs.length;bs[i].focus();e.preventDefault();
-});
-
-/* ---------------- time scrub ---------------- */
-const wave=$('#wave'), ticks=$('#ticks');
-ticks.innerHTML=DATA.dates.map(d=>`<span>${d}</span>`).join('');
-let playing=null, played=false;
-function setWave(v){wave.value=v;wave.setAttribute('aria-valuetext',DATA.dates[v]+' 2026, '+DATA.already[v]+'% already happening');if(scene==='time')Wtarget=+v}
-wave.addEventListener('input',()=>{stopPlay();setWave(+wave.value)});
-function stopPlay(){if(playing){clearInterval(playing);playing=null;$('#play').textContent='▶ Play'}}
-function play(){
-  stopPlay();let v=+wave.value>=7?0:+wave.value;setWave(v);played=true;
-  $('#play').textContent='❚❚ Pause';
-  playing=setInterval(()=>{v++;if(v>7){stopPlay();return}setWave(v)},RM?300:950);
-}
-$('#play').addEventListener('click',()=>playing?stopPlay():play());
-let lastShown=-1;
-function updateTime(){
-  const w=Wcur, a=Math.round(lerpArr(DATA.already,w)), l=Math.round(lerpArr(DATA.likely,w));
-  const key=a*1000+l;
-  if(key===lastShown)return;lastShown=key;
-  $('#c-big').textContent=a+'%';$('#s-a').textContent=a+'%';$('#s-l').textContent=l+'%';$('#s-b').textContent=(a+l)+'%';
-  const wi=Math.round(w);$('#c-date').textContent=DATA.dates[wi]+' 2026';
-  [...ticks.children].forEach((s,i)=>s.classList.toggle('on',i===wi));
-}
-
-/* ---------------- groups ---------------- */
-const G=[["Party",[["Democrats",31,53],["Republicans",24,35]]],["Age",[["18–34",29,42],["65+",27,42]]],["Gender",[["Men",27,45],["Women",28,41]]]];
-const MAXP=60;
-let gh=`<div class="gaxis" aria-hidden="true"><span></span><div class="ax">${[0,20,40,60].map(v=>`<span style="left:${v/MAXP*100}%">${v}%</span>`).join('')}</div><span></span></div>`;
-G.forEach(([sec,rows])=>{
-  gh+=`<div class="gsect">${sec}</div>`;
-  rows.forEach(([n,s,e])=>{gh+=`<div class="grow"><span class="gname">${n}</span><div class="gtrack" style="--s:${s/MAXP*100}%;--e:${e/MAXP*100}%" role="img" aria-label="${n}: ${s}% in June, ${e}% in October"><span class="bar"></span><i class="s"></i><i class="e"></i></div><span class="gval">${s} → ${e}%<b>+${e-s}</b></span></div>`});
-});
-$('#gchart').innerHTML=gh;
-
-/* ---------------- agency grids ---------------- */
-document.querySelectorAll('.dgrid').forEach(g=>{const n=+g.dataset.n;g.innerHTML=Array.from({length:100},(_,i)=>`<i class="${i<n?'on':''}" style="--k:${i}"></i>`).join('')});
-const replay=el=>{el.classList.remove('run');void el.offsetWidth;el.classList.add('run')};
-
-/* ---------------- future ---------------- */
-const year=$('#year'), hist=$('#hist');
-const demoYears=[3,2,4,6,9,7,8,5,6,4,5,3,3,2,2,4,1,1,1,0,3]; // demo visitor answers, 2026–2046
-function drawHist(){hist.innerHTML=demoYears.map((c,i)=>`<div class="${2026+i===+year.value?'on':''}">${'<i></i>'.repeat(c+(2026+i===+year.value?1:0))}</div>`).join('')}
-function onYear(){$('#yearout').textContent=year.value===`2026`?'Now':year.value;year.setAttribute('aria-valuetext',year.value);drawHist();updateRoom()}
-year.addEventListener('input',onYear);
-const AREAS=['Work','News','Health','Relationships','Education','Creativity'];
-$('#pills').innerHTML=AREAS.map((a,i)=>`<label class="pill"><input type="checkbox" id="area-${i}" value="${a}"><span>${a}</span></label>`).join('');
-$('#pills').addEventListener('change',()=>{
-  const boxes=[...document.querySelectorAll('#pills input')],on=boxes.filter(b=>b.checked);
-  boxes.forEach(b=>b.disabled=!b.checked&&on.length>=2);updateRoom();
-});
-
-/* ---------------- room ---------------- */
-const VIS={a:58,l:49,u:21};
-function stack(el,lbl,v){
-  const tot=v.a+v.l+v.u;const p=k=>Math.round(v[k]/tot*100);
-  el.innerHTML=`<span class="a" style="flex-grow:${v.a}"></span><span class="l" style="flex-grow:${v.l}"></span><span class="u" style="flex-grow:${v.u}"></span>`;
-  lbl.innerHTML=`<span>Already ${p('a')}%</span><span>Likely ${p('l')}%</span><span>Unlikely / not sure ${100-p('a')-p('l')}%</span>`;
-}
-let agPick=null;
-function updateRoom(){
-  const v={...VIS};if(answer)v[ANS[answer].group]++;
-  $('#vn').textContent=v.a+v.l+v.u;
-  stack($('#vstack'),$('#vlbl'),v);
-  stack($('#astack'),$('#albl'),{a:43,l:34,u:23});
-  const areas=[...document.querySelectorAll('#pills input:checked')].map(b=>b.value);
-  const yr=year.value==='2026'?'now':year.value;
-  if(answer){
-    $('#youline').innerHTML=`You answered <em>${ANS[answer].label.toLowerCase()}</em>. You expect it in your own life by <em>${yr}</em>${areas.length?`, and you still want a say in <em>${areas.join(' and ').toLowerCase()}</em>`:''}.`;
-  }
-  $('#cardyr').textContent=year.value==='2026'?'Now':year.value;
-  $('#cardsay').innerHTML=`I still want a say in: <b>${areas.length?areas.join(' & '):'—'}</b>`;
-}
-document.querySelectorAll('.choice .btn').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('.choice .btn').forEach(x=>{x.classList.remove('is-on');x.setAttribute('aria-checked','false')});
-  b.classList.add('is-on');b.setAttribute('aria-checked','true');agPick=+b.dataset.g;
-  const share=[67,16,17][agPick];
-  $('#agfb').textContent=agPick===2?'Most Americans did pick one of the two statements: 67% the first, 16% the second.':`In October, ${share}% of Americans chose the same statement as you.`;
-}));
-$('#copy').addEventListener('click',()=>{
-  const areas=[...document.querySelectorAll('#pills input:checked')].map(b=>b.value);
-  const txt=`20 Years From Now · my card\nI expect AI to start doing things nobody intended in my own life by ${year.value==='2026'?'now':year.value}.\nI still want a say in: ${areas.length?areas.join(' & '):'(not chosen yet)'}.\n43% of Americans say it is already happening (Americans on AI, Oct 2026).`;
-  const ta=$('#cardtext');ta.value=txt;
-  const fb=$('#copyfb');
-  if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(txt).then(()=>{fb.textContent='Copied';ta.hidden=true}).catch(()=>{ta.hidden=false;ta.select();fb.textContent='Select the text below and copy it'});
-  }else{ta.hidden=false;ta.select();fb.textContent='Select the text below and copy it'}
-});
-onYear();updateRoom();
-
-/* ---------------- scenes ---------------- */
-const secs=[...document.querySelectorAll('.scene')];
-const navBtns=[...document.querySelectorAll('.nav button')];
-navBtns.forEach(b=>b.addEventListener('click',()=>document.getElementById(b.dataset.go).scrollIntoView({behavior:RM?'auto':'smooth'})));
-function setScene(sec){
-  const s=sec.dataset.scene;if(s===scene)return;scene=s;document.body.dataset.scene=s;
-  const c=SC[s];modeT=c.m;dimT=c.d;
-  if(c.w==='user')Wtarget=+wave.value;else if(c.w!==undefined)Wtarget=c.w;
-  if(s!=='time')stopPlay();
-  if(s==='time'&&!played&&!RM)setTimeout(()=>{if(scene==='time'&&!played)play()},700);
-  if(s==='groups')replay($('#gchart'));
-  if(s==='agency')replay($('#agencyviz'));
-  tip.hidden=true;
-  cv.style.touchAction=s==='push'?'none':'auto';
-  const act=sec.dataset.act;$('#actlabel').innerHTML=`Act 0${act} · <span>${ACTS[act]}</span>`;
-  const map={1:'intro',2:'reveal',3:'orbit',4:'push',5:'future'};
-  navBtns.forEach(b=>b.toggleAttribute('aria-current',false));
-  const nb=navBtns.find(b=>b.dataset.go===map[act]);if(nb)nb.setAttribute('aria-current','step');
-}
-document.body.dataset.scene='intro';navBtns[0].setAttribute('aria-current','step');
-const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)setScene(e.target)}),{rootMargin:'-50% 0px -50% 0px'});
-secs.forEach(s=>io.observe(s));
-const prog=$('#progress');
-addEventListener('scroll',()=>{const m=document.documentElement.scrollHeight-innerHeight;prog.style.width=(m>0?scrollY/m*100:0)+'%'},{passive:true});
-
-/* ---------------- drawer ---------------- */
-const drawer=$('#drawer'),scrim=$('#scrim');let lastFocus=null;drawer.inert=true;
-function openDrawer(){lastFocus=document.activeElement;drawer.classList.add('open');scrim.classList.add('open');drawer.setAttribute('aria-hidden','false');drawer.inert=false;$('#closedrawer').focus()}
-function closeDrawer(){drawer.classList.remove('open');scrim.classList.remove('open');drawer.setAttribute('aria-hidden','true');drawer.inert=true;if(lastFocus)lastFocus.focus()}
-$('#howbtn').addEventListener('click',openDrawer);$('#howbtn2').addEventListener('click',openDrawer);
-$('#closedrawer').addEventListener('click',closeDrawer);scrim.addEventListener('click',closeDrawer);
-addEventListener('keydown',e=>{if(e.key==='Escape'&&drawer.classList.contains('open'))closeDrawer()});
-})();

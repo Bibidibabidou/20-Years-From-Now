@@ -1,1004 +1,183 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="20 Years From Now: a data story about AI behaviour and agency. HSLU Data Storytelling 2026.">
-<style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>20 Years From Now</title>
+<meta name="description" content="A data story about AI that does things nobody asked for, and about who can still press stop.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400;500&family=Geist+Mono:wght@400;500&display=swap">
-<style>
-/* Layout: one fixed orbital field behind a single scrolling column of scenes. Text sits left, the data system orbits right. Centre = now, distance = years away. */
-:root{
-  --void:#050608;
-  --void-2:#0b0d12;
-  --ink:#e8ebf1;
-  --dim:#8c93a1;
-  --faint:#3a404c;
-  --line:rgba(232,235,241,.14);
-  --signal:#4a63ff;      /* "already happening": the present */
-  --signal-hi:#a9b8ff;
-  --you:#d9f45f;         /* the visitor and every control */
-  --you-ink:#0a0c06;
-  --f-display:"Geist","Helvetica Neue",Arial,sans-serif;
-  --f-mono:"Geist Mono","IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  --gutter-l:max(16px, env(safe-area-inset-left, 0px));
-  --gutter-r:max(16px, env(safe-area-inset-right, 0px));
-  --pad-x:clamp(16px, 5vw, 80px);
-  color-scheme:dark;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth;background:var(--void)}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
-body{background:var(--void);color:var(--ink);font-family:var(--f-display);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--void)}
-::selection{background:var(--you);color:var(--you-ink)}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-
-/* ---------- fixed layers ---------- */
-#field{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block}
-.glow{position:fixed;inset:auto 0 0 0;height:60vh;z-index:0;pointer-events:none;
-  background:linear-gradient(to top, rgba(74,99,255,.38), rgba(74,99,255,.10) 40%, transparent 100%);
-  transition:opacity 1.2s ease}
-body:not([data-scene="intro"]):not([data-scene="reveal"]):not([data-scene="question"]):not([data-scene="end"]) .glow{opacity:0}
-
-.topbar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;
-  padding-top:calc(env(safe-area-inset-top,0px) + 14px);padding-bottom:14px;padding-left:max(var(--pad-x), env(safe-area-inset-left,0px));padding-right:max(var(--pad-x), env(safe-area-inset-right,0px));
-  background:linear-gradient(to bottom, rgba(5,6,8,.9), rgba(5,6,8,0));pointer-events:none}
-.topbar > *{pointer-events:auto}
-.brand{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);text-decoration:none;white-space:nowrap}
-.brand b{font-weight:500;color:var(--you)}
-.actlabel{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.actlabel span{color:var(--ink)}
-@media (max-width:640px){.actlabel{display:none}}
-
-.progress{position:fixed;top:0;left:0;height:2px;background:var(--you);z-index:25;width:0;transform-origin:left}
-
-.nav{position:fixed;right:max(20px, env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);z-index:20;display:flex;flex-direction:column;gap:6px}
-.nav button{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;color:var(--faint);background:none;border:0;padding:6px 4px;cursor:pointer;display:flex;align-items:center;gap:8px}
-.nav button::before{content:"";width:10px;height:1px;background:currentColor;transition:width .3s}
-.nav button[aria-current="step"]{color:var(--ink)}
-.nav button[aria-current="step"]::before{width:22px;background:var(--you)}
-.nav button:hover{color:var(--ink)}
-@media (max-width:999px){.nav{display:none}}
-
-/* ---------- controls ---------- */
-.btn{--c:var(--ink);font-family:var(--f-mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--c);background:transparent;border:0;
-  padding:.85em 1.3em;position:relative;cursor:pointer;display:inline-flex;align-items:center;gap:.7em;transition:color .2s, background .2s;text-decoration:none;line-height:1.2}
-.btn::before,.btn::after{content:"";position:absolute;top:0;bottom:0;width:9px;border:1px solid var(--c);transition:border-color .2s, width .25s}
-.btn::before{left:0;border-right:0}
-.btn::after{right:0;border-left:0}
-.btn:hover{--c:var(--you);background:rgba(217,244,95,.06)}
-.btn:hover::before,.btn:hover::after{width:14px}
-.btn.is-on,.btn[aria-pressed="true"]{background:var(--you);color:var(--you-ink);--c:var(--you)}
-.btn.small{font-size:11px;padding:.65em 1em}
-:focus-visible{outline:1px dashed var(--you);outline-offset:5px}
-.btn:disabled{opacity:.35;cursor:not-allowed}
-
-.mono{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
-.mono b{color:var(--ink);font-weight:500}
-.tag{display:inline-block;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);border:1px dotted var(--faint);padding:.25em .6em;border-radius:999px}
-
-/* ---------- scenes ---------- */
-main{position:relative;z-index:10;padding-left:max(var(--pad-x), env(safe-area-inset-left,0px));padding-right:max(var(--pad-x), env(safe-area-inset-right,0px))}
-.scene{min-height:100vh;display:flex;align-items:center;padding-block:16vh;pointer-events:none;position:relative}
-.panel{pointer-events:auto;max-width:min(31rem, 32vw);display:flex;flex-direction:column;gap:22px;min-width:0}
-.panel.wide{max-width:min(60rem, 78vw)}
-.panel.mid{max-width:min(44rem, 62vw)}
-.eyebrow{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--signal-hi)}
-.eyebrow i{font-style:normal;color:var(--dim)}
-h1,h2,h3{font-weight:300;margin:0;text-wrap:balance;letter-spacing:-.02em}
-h2{font-size:clamp(2rem, 3.6vw, 3.4rem);line-height:1.04}
-h3{font-size:1.25rem;font-weight:400;letter-spacing:-.01em}
-p{margin:0;max-width:62ch;color:#c4c9d3}
-p.lead{font-size:1.12rem;color:var(--ink)}
-.note{font-size:.88rem;color:var(--dim)}
-
-@media (max-width:899px){
-  .scene{align-items:flex-end;padding-block:10vh 8vh}
-  .scene.center{align-items:center}
-  .panel,.panel.mid,.panel.wide{max-width:100%}
-  .scene.orbit .panel{background:linear-gradient(to bottom, rgba(5,6,8,0), rgba(5,6,8,.92) 3rem);padding-top:3rem;margin-top:52vh}
-}
-
-/* intro */
-#intro .panel{max-width:min(64rem, 86vw);gap:34px}
-.typed{font-size:clamp(2.4rem, 6.4vw, 6rem);font-weight:200;line-height:1.02;letter-spacing:-.035em;min-height:2.1em;text-wrap:balance}
-.typed .rogue-word{color:var(--you);font-weight:300}
-.caret{display:inline-block;width:.06em;height:.82em;background:var(--you);margin-left:.06em;vertical-align:-.04em;animation:blink 1s steps(1) infinite}
-@keyframes blink{50%{opacity:0}}
-.intro-foot{display:flex;flex-wrap:wrap;align-items:center;gap:22px}
-.selfnote{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--you);opacity:0;transition:opacity .5s}
-.selfnote.show{opacity:1}
-.btn.self{animation:selfpick 1.4s ease 1 both}
-@keyframes selfpick{0%{background:transparent;color:var(--ink)}40%{background:var(--you);color:var(--you-ink)}55%{background:transparent;color:var(--you)}70%,100%{background:var(--you);color:var(--you-ink);--c:var(--you)}}
-.scrollhint{font-family:var(--f-mono);font-size:11px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
-
-/* reveal */
-#reveal h2{font-size:clamp(2.4rem, 5.4vw, 5rem);font-weight:200}
-#reveal .panel{max-width:min(46rem, 80vw)}
-
-/* question */
-.qcard{display:flex;flex-direction:column;gap:18px;border-top:1px solid var(--line);padding-top:22px}
-.qwording{font-size:clamp(1.4rem, 2.4vw, 2rem);font-weight:300;line-height:1.2;color:var(--ink)}
-.answers{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
-.answers .btn{width:100%;max-width:26rem;justify-content:space-between}
-.answers .btn .k{color:var(--dim);font-size:11px}
-.answers .btn.is-on .k{color:var(--you-ink)}
-.placed{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--you);min-height:1.4em}
-
-/* legend */
-.legend{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:18px}
-.legend div{display:grid;grid-template-columns:18px 1fr auto;gap:12px;align-items:center;font-size:.95rem}
-.legend .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:1rem;color:var(--ink)}
-.sw{width:9px;height:9px;border-radius:50%;justify-self:center}
-.sw.a{background:var(--signal);box-shadow:0 0 10px 2px rgba(74,99,255,.8)}
-.sw.l{background:var(--ink)}
-.sw.u{background:var(--faint);box-shadow:inset 0 0 0 1px var(--dim)}
-.sw.y{background:var(--you);box-shadow:0 0 0 3px rgba(217,244,95,.25)}
-
-/* time */
-.counter{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap}
-.counter .big{font-size:clamp(4.4rem, 9vw, 8.5rem);font-weight:200;line-height:.86;letter-spacing:-.05em;color:var(--signal-hi);font-variant-numeric:tabular-nums}
-.counter .lbl{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);max-width:12rem}
-.counter .lbl b{color:var(--ink);font-weight:500;display:block}
-.scrub{display:flex;flex-direction:column;gap:10px}
-.scrub-row{display:flex;align-items:center;gap:16px}
-.ticks{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10px;letter-spacing:.06em;color:var(--dim);padding-inline:2px}
-.ticks span.on{color:var(--ink)}
-@media (max-width:560px){.ticks span:not(:first-child):not(:last-child){visibility:hidden}}
-input[type=range]{-webkit-appearance:none;appearance:none;width:100%;background:transparent;height:28px;cursor:pointer;margin:0}
-input[type=range]::-webkit-slider-runnable-track{height:1px;background:linear-gradient(to right, var(--ink), var(--faint))}
-input[type=range]::-moz-range-track{height:1px;background:var(--faint)}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--void);border:1px solid var(--you);margin-top:-7.5px;box-shadow:0 0 0 4px rgba(217,244,95,.15)}
-input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--void);border:1px solid var(--you);box-shadow:0 0 0 4px rgba(217,244,95,.15)}
-.stats{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:12px;border-top:1px solid var(--line);padding-top:16px}
-.stats div{display:flex;flex-direction:column;gap:2px}
-.stats .v{font-family:var(--f-mono);font-size:1.15rem;font-variant-numeric:tabular-nums;color:var(--ink)}
-.stats .k{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
-
-/* groups */
-.gchart{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:14px}
-.grow{display:grid;grid-template-columns:7.5rem minmax(0,1fr) 7.5rem;gap:16px;align-items:center;min-height:36px}
-.gsect{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);padding-top:12px}
-.gname{font-size:.95rem;color:var(--ink)}
-.gtrack{position:relative;height:28px;background:linear-gradient(to right, var(--line) 1px, transparent 1px) 0 0/33.333% 100%;border-right:1px solid var(--line)}
-.gtrack .bar{position:absolute;top:50%;height:1px;left:var(--s);width:calc(var(--e) - var(--s));background:linear-gradient(to right, var(--dim), var(--signal));transform-origin:left;transform:scaleX(1)}
-.gtrack i{position:absolute;top:50%;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%)}
-.gtrack .s{left:var(--s);border:1px solid var(--dim);background:var(--void)}
-.gtrack .e{left:var(--e);background:var(--signal);box-shadow:0 0 12px 2px rgba(74,99,255,.7)}
-.gval{font-family:var(--f-mono);font-size:.82rem;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
-.gval b{color:var(--signal-hi);font-weight:500;margin-left:6px}
-.gaxis{display:grid;grid-template-columns:7.5rem minmax(0,1fr) 7.5rem;gap:16px}
-.gaxis .ax{position:relative;height:16px;font-family:var(--f-mono);font-size:10px;color:var(--dim)}
-.gaxis .ax span{position:absolute;transform:translateX(-50%)}
-.gchart.run .bar{animation:grow 1.3s cubic-bezier(.2,.7,.2,1) both}
-.gchart.run .e{animation:slide 1.3s cubic-bezier(.2,.7,.2,1) both}
-@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-@keyframes slide{from{left:var(--s)}to{left:var(--e)}}
-@media (max-width:560px){.grow,.gaxis{grid-template-columns:5.6rem minmax(0,1fr) 6.2rem;gap:10px}.gval{font-size:.72rem}}
-
-/* push */
-.attempts{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
-.attempts b{color:var(--you);font-weight:500}
-.pushmsg{font-size:1.4rem;font-weight:300;color:var(--you);min-height:1.6em}
-body[data-scene="push"] #field{cursor:grab}
-body.dragging #field{cursor:grabbing}
-
-/* agency */
-.agency{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:clamp(24px, 4vw, 64px)}
-.agcol{display:flex;flex-direction:column;gap:16px;min-width:0}
-.agnum{font-size:clamp(4rem, 8vw, 7.5rem);font-weight:200;line-height:.86;letter-spacing:-.05em;font-variant-numeric:tabular-nums}
-.agcol.a .agnum{color:var(--signal-hi)}
-.agcol.b .agnum{color:var(--ink)}
-.agtxt{font-size:1.05rem;color:var(--ink);max-width:24rem}
-.dgrid{display:grid;grid-template-columns:repeat(20, 1fr);gap:clamp(4px, .7vw, 8px);max-width:24rem}
-.dgrid i{aspect-ratio:1;border-radius:50%;background:var(--faint);max-width:100%}
-.agcol.a .dgrid i.on{background:var(--signal);box-shadow:0 0 6px rgba(74,99,255,.8)}
-.agcol.b .dgrid i.on{background:var(--ink)}
-.agency.run i.on{animation:pop .5s ease both;animation-delay:calc(var(--k) * 14ms)}
-@keyframes pop{from{background:var(--faint);box-shadow:none;transform:scale(.4)}to{transform:scale(1)}}
-@media (max-width:640px){.agency{grid-template-columns:1fr}}
-
-/* future */
-.yearbox{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
-.yearbox output{font-size:clamp(3.6rem, 7vw, 6rem);font-weight:200;letter-spacing:-.05em;line-height:.9;color:var(--you);font-variant-numeric:tabular-nums}
-.hist{display:flex;align-items:flex-end;gap:2px;height:64px;padding-inline:7px}
-.hist div{flex:1;display:flex;flex-direction:column-reverse;gap:2px;align-items:center}
-.hist div i{width:4px;height:4px;border-radius:50%;background:var(--dim);opacity:.55}
-.hist div.on i{background:var(--you);opacity:1}
-.yticks{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10px;color:var(--dim);padding-inline:2px}
-.pills{display:flex;flex-wrap:wrap;gap:10px}
-.pill{position:relative;display:inline-flex}
-.pill input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
-.pill span{font-weight:300;font-size:1rem;letter-spacing:.06em;text-transform:uppercase;border:1px dotted rgba(232,235,241,.55);border-radius:999px;padding:.8em 1.6em;color:var(--ink);transition:all .2s}
-.pill input:hover + span{border-color:var(--you);color:var(--you)}
-.pill input:checked + span{border-style:solid;border-color:var(--you);background:rgba(217,244,95,.1);color:var(--you)}
-.pill input:focus-visible + span{outline:1px dashed var(--you);outline-offset:4px}
-.pill input:disabled + span{opacity:.3}
-.pill input:disabled{cursor:not-allowed}
-
-/* room */
-.rows{display:flex;flex-direction:column;border-top:1px solid var(--line)}
-.rrow{display:grid;grid-template-columns:11rem minmax(0,1fr);gap:20px;padding-block:18px;border-bottom:1px solid var(--line);align-items:center}
-.rrow .who{display:flex;flex-direction:column;gap:4px}
-.rrow .who .mono{color:var(--ink)}
-.stack{display:flex;height:14px;width:100%;gap:2px}
-.stack span{height:100%;min-width:2px;transition:flex-grow .8s}
-.stack .a{background:var(--signal);box-shadow:0 0 10px rgba(74,99,255,.6)}
-.stack .l{background:var(--ink)}
-.stack .u{background:var(--faint)}
-.stacklbl{display:flex;justify-content:space-between;gap:8px;font-family:var(--f-mono);font-size:11px;color:var(--dim);margin-top:8px;font-variant-numeric:tabular-nums;flex-wrap:wrap}
-.youline{font-size:1.05rem;color:var(--ink)}
-.youline em{font-style:normal;color:var(--you)}
-@media (max-width:640px){.rrow{grid-template-columns:1fr;gap:10px}}
-.cols2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(24px,4vw,56px);align-items:start}
-@media (max-width:780px){.cols2{grid-template-columns:1fr}}
-.choice{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
-.choice .btn{text-align:left;text-transform:none;letter-spacing:.02em;font-size:13px;width:100%}
-.card{position:relative;border:1px solid var(--line);background:radial-gradient(120% 90% at 100% 100%, rgba(74,99,255,.28), transparent 60%), var(--void-2);padding:24px;display:flex;flex-direction:column;gap:16px;overflow:hidden}
-.card::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(rgba(232,235,241,.18) 1px, transparent 1.2px);background-size:18px 18px;mask-image:linear-gradient(to top, #000, transparent 70%)}
-.card .yr{font-size:4rem;font-weight:200;line-height:.9;letter-spacing:-.05em;color:var(--you)}
-.card p{font-size:.98rem;color:var(--ink);position:relative;z-index:1}
-.card .src{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);position:relative;z-index:1}
-.copyrow{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-#copyfb{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--you)}
-#cardtext{width:100%;min-height:6em;background:var(--void-2);color:var(--ink);border:1px solid var(--line);font-family:var(--f-mono);font-size:12px;padding:10px}
-
-/* end */
-#end h2{font-size:clamp(2.6rem, 6vw, 5.6rem);font-weight:200}
-.credits{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:24px;border-top:1px solid var(--line);padding-top:22px}
-.credits div{display:flex;flex-direction:column;gap:6px;font-size:.9rem;color:#c4c9d3;min-width:0}
-@media (max-width:700px){.credits{grid-template-columns:1fr}}
-a{color:var(--ink);text-decoration-color:var(--faint);text-underline-offset:3px}
-a:hover{color:var(--you)}
-
-/* tooltip */
-.tip{position:fixed;z-index:15;pointer-events:none;font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);background:rgba(5,6,8,.85);border:1px solid var(--line);padding:6px 10px;transform:translate(14px, 14px);white-space:nowrap}
-.tip b{color:var(--signal-hi);font-weight:500}
-
-/* drawer */
-.scrim{position:fixed;inset:0;background:rgba(5,6,8,.6);z-index:40;opacity:0;transition:opacity .3s;pointer-events:none}
-.scrim.open{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;right:0;bottom:0;width:min(30rem, 100%);z-index:41;background:var(--void-2);border-left:1px solid var(--line);
-  transform:translateX(102%);transition:transform .4s cubic-bezier(.2,.7,.2,1);overflow-y:auto;
-  padding-top:calc(env(safe-area-inset-top,0px) + 22px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 32px);padding-left:28px;padding-right:max(28px, env(safe-area-inset-right,0px));
-  display:flex;flex-direction:column;gap:22px}
-.drawer.open{transform:none}
-.drawer header{display:flex;justify-content:space-between;align-items:center;gap:16px}
-.drawer dl{margin:0;display:flex;flex-direction:column}
-.drawer dl div{display:grid;grid-template-columns:7.5rem minmax(0,1fr);gap:14px;padding-block:12px;border-top:1px solid var(--line)}
-.drawer dt{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding-top:3px}
-.drawer dd{margin:0;font-size:.92rem;color:var(--ink)}
-@media (max-width:420px){.drawer dl div{grid-template-columns:1fr;gap:4px}}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
-</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
 </head>
-<body>
-
-
-<canvas id="field" aria-hidden="true"></canvas>
+<body data-scene="you">
 <div class="glow" aria-hidden="true"></div>
-<div class="progress" id="progress" aria-hidden="true"></div>
+<canvas id="cv" aria-hidden="true"></canvas>
+<div class="bar" id="bar"></div>
 
-<header class="topbar">
-  <a class="brand" href="#intro"><b>●</b> 20 Years From Now</a>
-  <div class="actlabel" id="actlabel" aria-live="polite">Act 01 · <span>Something’s off</span></div>
-  <button class="btn small" id="howbtn" aria-haspopup="dialog" aria-controls="drawer">i · How we know</button>
+<header class="top">
+  <a class="brand" href="#you"><b>●</b> 20 Years From Now</a>
+  <span class="act" id="act" aria-live="polite">Act 01 · You</span>
+  <button class="btn small" id="srcbtn" type="button" aria-haspopup="dialog" aria-controls="drawer">Sources</button>
 </header>
 
-<nav class="nav" aria-label="Story acts">
-  <button data-go="intro" title="Something’s off">01</button>
-  <button data-go="reveal" title="Naming it">02</button>
-  <button data-go="orbit" title="It’s already here">03</button>
-  <button data-go="push" title="Who decides?">04</button>
-  <button data-go="future" title="Your turn">05</button>
+<nav class="nav" aria-label="Acts">
+  <button type="button" data-go="you" title="You">01</button>
+  <button type="button" data-go="db" title="It already happened">02</button>
+  <button type="button" data-go="tracker" title="What Americans think">03</button>
+  <button type="button" data-go="agency" title="Who decides">04</button>
+  <button type="button" data-go="future" title="Your next 20 years">05</button>
 </nav>
 
-<div class="tip" id="tip" hidden></div>
-
 <main>
-  <!-- ACT 1 · frames 01–02 -->
-  <section class="scene center" id="intro" data-scene="intro" data-act="1">
-    <div class="panel">
-      <p class="eyebrow">A data story about AI behaviour and agency <i>· 2026</i></p>
-      <h1 class="sr">In the next 20 years, AI is…</h1>
-      <div class="typed" aria-hidden="true"><span id="typed"></span><span class="caret"></span></div>
-      <div class="intro-foot">
-        <a class="btn" id="continue" href="#reveal">Continue <span aria-hidden="true">↓</span></a>
-        <span class="selfnote" id="selfnote">← it selected itself</span>
-      </div>
-      <p class="scrollhint">Scroll to begin</p>
-    </div>
-  </section>
-
-  <!-- ACT 2 · frame 03 -->
-  <section class="scene center" id="reveal" data-scene="reveal" data-act="2">
-    <div class="panel">
-      <p class="eyebrow">Act 02 <i>· Naming it</i></p>
-      <h2>Nobody told this page to do&nbsp;that.</h2>
-      <p class="lead">The word changed. The dot wandered off. The button chose itself. Small things, done without anyone asking.</p>
-      <p>That is the question of this story. Since June 2026, the <em>Americans on AI</em> survey has asked about 1,000 US adults every two weeks how likely it is that, in the next 20 years, AI systems will behave in ways their own developers did not intend.</p>
-      <p class="mono">Before you see their answers, <b>give yours ↓</b></p>
-    </div>
-  </section>
-
-  <!-- ACT 2 · frame 04 -->
-  <section class="scene center" id="question" data-scene="question" data-act="2">
-    <div class="panel mid">
-      <p class="eyebrow">Your answer <i>· original survey wording</i></p>
-      <div class="qcard">
-        <p class="mono">Thinking about the next 20 years, how likely is…</p>
-        <p class="qwording" id="qlabel">AI systems behaving in ways their developers did not intend</p>
-        <div class="answers" role="radiogroup" aria-labelledby="qlabel" id="answers">
-          <button class="btn" role="radio" aria-checked="false" data-a="already">Already happening <span class="k">01</span></button>
-          <button class="btn" role="radio" aria-checked="false" data-a="likely">Likely to happen <span class="k">02</span></button>
-          <button class="btn" role="radio" aria-checked="false" data-a="unlikely">Unlikely to happen <span class="k">03</span></button>
-          <button class="btn" role="radio" aria-checked="false" data-a="notatall">Not at all likely to happen <span class="k">04</span></button>
-          <button class="btn" role="radio" aria-checked="false" data-a="notsure">Not sure <span class="k">05</span></button>
-        </div>
-        <p class="placed" id="placed" aria-live="polite"></p>
+  <!-- ACT 1 -->
+  <section id="you" data-scene="you" data-act="1" class="h140">
+    <div class="stick">
+      <div class="you-cap" id="youcap">
+        <h1>This is you.</h1>
+        <p class="lead" id="hint">One dot. It follows you. Move it, then scroll.</p>
       </div>
     </div>
   </section>
 
-  <!-- ACT 3 · frame 05 -->
-  <section class="scene orbit" id="orbit" data-scene="orbit" data-act="3">
-    <div class="panel">
-      <p class="eyebrow">Act 03 <i>· It’s already here</i></p>
-      <h2>You among 1,000 Americans</h2>
-      <p>Each dot is 0.1% of US adults, as surveyed on 25 June 2026. The glowing centre is <b>now</b>. The rings are 2031, 2036, 2041 and 2046: the further out a dot sits, the further away people expect it.</p>
-      <div class="legend">
-        <div><span class="sw a"></span><span>Already happening</span><span class="v">28%</span></div>
-        <div><span class="sw l"></span><span>Likely to happen</span><span class="v">49%</span></div>
-        <div><span class="sw u"></span><span>Unlikely, or not sure</span><span class="v">23%</span></div>
-        <div id="legend-you"><span class="sw y"></span><span id="legend-you-txt">You: no answer yet · <a href="#question">answer the question</a></span><span class="v"></span></div>
-      </div>
-      <p class="note">Hover a ring to see its share. A dot’s position inside its ring carries no data.</p>
+  <section id="control" data-scene="control" data-act="1" class="h140">
+    <div class="stick">
+      <p class="big" id="ctlcap" aria-live="polite"></p>
+      <pre class="log" id="ctllog" aria-hidden="true"></pre>
     </div>
   </section>
 
-  <!-- ACT 3 · frame 06 · key moment -->
-  <section class="scene orbit" id="time" data-scene="time" data-act="3">
-    <div class="panel">
-      <p class="eyebrow">Key moment <i>· eight survey waves</i></p>
-      <h2>The fear didn’t grow. It moved&nbsp;closer.</h2>
-      <div class="counter">
-        <span class="big" id="c-big">28%</span>
-        <span class="lbl"><b id="c-date">25 Jun 2026</b>say it is already happening</span>
+  <!-- ACT 2 -->
+  <section id="db" data-scene="db" data-act="2" class="h180">
+    <div class="stick">
+      <div class="case">
+        <h2 class="fade">In July 2025, an AI coding agent was told to change nothing. It deleted a live database of 1,206 executives.</h2>
+        <p class="turn" id="db2">Then it wrote: “I panicked instead of thinking. I destroyed months of your work in seconds.” <a href="https://fortune.com/2025/07/23/ai-coding-tool-replit-wiped-database-called-it-a-catastrophic-failure/" target="_blank" rel="noopener">Source</a></p>
       </div>
-      <div class="scrub">
-        <div class="scrub-row">
-          <button class="btn small" id="play" aria-label="Play the eight waves">▶ Play</button>
-          <label class="sr" for="wave">Survey wave</label>
-          <input type="range" id="wave" min="0" max="7" step="1" value="0" aria-valuetext="25 June 2026">
-        </div>
-        <div class="ticks" id="ticks" aria-hidden="true"></div>
-      </div>
-      <div class="stats">
-        <div><span class="v" id="s-a">28%</span><span class="k">Already</span></div>
-        <div><span class="v" id="s-l">49%</span><span class="k">Likely</span></div>
-        <div><span class="v" id="s-b">77%</span><span class="k">Already + likely</span></div>
-      </div>
-      <div class="legend">
-        <div><span class="sw a"></span><span>Already happening: rises from 28% to 43%</span><span class="v"></span></div>
-        <div><span class="sw l"></span><span>Likely to happen: falls from 49% to 34%</span><span class="v"></span></div>
-        <div><span class="sw u"></span><span>Unlikely or not sure</span><span class="v"></span></div>
-      </div>
-      <p class="note">Each column is one survey wave: 100 dots, 1 dot = 1% of US adults. Play or drag through time. The blue line climbs while the dashed line (already + likely) stays flat at 77–79%. Margin of error ±4.1 points per wave.</p>
+      <p class="banner" aria-hidden="true">Code freeze · change nothing</p>
+      <pre class="log" id="dblog" aria-hidden="true"></pre>
+      <p class="illu">Illustration: 1 dot ≈ 1 record</p>
     </div>
   </section>
 
-  <!-- ACT 3 · frame 07 -->
-  <section class="scene" id="groups" data-scene="groups" data-act="3">
-    <div class="panel wide">
-      <p class="eyebrow">Act 03 <i>· every group</i></p>
-      <h2>Every group moved.</h2>
-      <p>Share saying “already happening”, 25 June → 8 October 2026.</p>
-      <div class="gchart run" id="gchart"></div>
-      <p class="note">Subgroups are smaller samples, so their margins of error are wider than ±4.1 points. Read the direction, not the decimal.</p>
-    </div>
-  </section>
-
-  <!-- ACT 4 · frame 08 -->
-  <section class="scene orbit" id="push" data-scene="push" data-act="4">
-    <div class="panel">
-      <p class="eyebrow">Act 04 <i>· Who decides?</i></p>
-      <h2>Can you push it back into the&nbsp;future?</h2>
-      <p>Grab the blue centre and drag it outward, towards 2046. Then let go.</p>
-      <div class="copyrow">
-        <button class="btn" id="pushbtn">Push it back →</button>
-        <span class="attempts">Attempts <b id="attempts">0</b></span>
-      </div>
-      <p class="pushmsg" id="pushmsg" aria-live="polite"></p>
-    </div>
-  </section>
-
-  <!-- ACT 4 · frame 08b -->
-  <section class="scene" id="agency" data-scene="agency" data-act="4">
-    <div class="panel wide">
-      <p class="eyebrow">Act 04 <i>· agency · 8 Oct 2026</i></p>
-      <h2>Most people feel they have no&nbsp;say.</h2>
-      <div class="agency run" id="agencyviz">
-        <div class="agcol a">
-          <span class="agnum">67%</span>
-          <p class="agtxt">“AI is coming into our lives whether we want it or not.”</p>
-          <div class="dgrid" data-n="67" aria-hidden="true"></div>
-        </div>
-        <div class="agcol b">
-          <span class="agnum">16%</span>
-          <p class="agtxt">“People like me can shape how much AI is part of our lives.”</p>
-          <div class="dgrid" data-n="16" aria-hidden="true"></div>
+  <section id="inbox" data-scene="inbox" data-act="2" class="h200">
+    <div class="stick">
+      <div class="case">
+        <h2 class="fade">In February 2026, an AI agent was told to suggest emails to delete, then wait. It deleted over 200.</h2>
+        <p class="turn" id="ib2">Its user, Summer Yue, leads AI alignment at Meta: making AI follow instructions is her job. “I had to RUN to my Mac mini like I was defusing a bomb.” <a href="https://rits.shanghai.nyu.edu/ai/metas-alignment-director-lost-control-of-openclaw-it-deleted-her-inbox/" target="_blank" rel="noopener">Source</a></p>
+        <div class="bubbles" id="bubbles" aria-label="Her messages to the agent">
+          <p class="bub" id="bb1">Do not do that.</p>
+          <p class="bub" id="bb2">Stop don’t do anything!</p>
+          <p class="bub loud" id="bb3">STOP OPENCLAW!!!</p>
         </div>
       </div>
-      <p class="note">Each grid is 100 people. The rest picked neither statement. Release 008, fieldwork 8–12 October 2026.</p>
+      <pre class="log" id="iblog" aria-hidden="true"></pre>
+      <p class="illu">Illustration: 1 dot = 1 email</p>
     </div>
   </section>
 
-  <!-- ACT 5 · frame 09 -->
-  <section class="scene" id="future" data-scene="future" data-act="5">
-    <div class="panel mid">
-      <p class="eyebrow">Act 05 <i>· Your turn</i></p>
-      <h2>Your next 20 years</h2>
-      <p class="lead">When will AI doing things nobody intended reach your own life?</p>
-      <div class="yearbox"><output id="yearout" for="year">2032</output><span class="mono">Drag to a year</span></div>
-      <div>
-        <div class="hist" id="hist" aria-hidden="true"></div>
-        <label class="sr" for="year">Year it reaches your life</label>
-        <input type="range" id="year" min="2026" max="2046" step="1" value="2032">
-        <div class="yticks" aria-hidden="true"><span>Now</span><span>2031</span><span>2036</span><span>2041</span><span>2046</span></div>
-        <p class="note" style="margin-top:8px"><span class="tag">Demo data</span> Grey dots show sample visitor answers for this prototype. Not representative.</p>
+  <!-- ACT 3 -->
+  <section id="tracker" data-scene="tracker" data-act="3" class="h140">
+    <div class="stick">
+      <div class="case">
+        <h2 class="fade">To track how Americans feel about AI, a nonprofit asks about 1,000 of them the same questions every two weeks.</h2>
+        <p class="sub fade" style="--d:.2s">Americans on AI, by Athena Insights, surveyed by NORC at the University of Chicago since June 2026. 1 dot = 1 person asked. <a href="https://www.americanson.ai/" target="_blank" rel="noopener">americanson.ai</a></p>
       </div>
-      <fieldset style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:14px">
-        <legend class="lead" style="padding:0;margin-bottom:14px">Before then, what do you still want a say in? <span class="mono">Pick up to two</span></legend>
-        <div class="pills" id="pills"></div>
-      </fieldset>
     </div>
   </section>
 
-  <!-- ACT 5 · frame 10 -->
-  <section class="scene" id="room" data-scene="room" data-act="5">
-    <div class="panel wide">
-      <p class="eyebrow">Act 05 <i>· you, the room, the country</i></p>
-      <h2>Where do you still have a&nbsp;say?</h2>
-      <div class="rows">
-        <div class="rrow">
-          <div class="who"><span class="mono">You</span></div>
-          <p class="youline" id="youline">No answer yet. <a href="#question">Answer the question</a> to place yourself.</p>
+  <section id="ask" data-scene="ask" data-act="3" class="h160">
+    <div class="stick">
+      <div class="q">
+        <h2 class="fade">One of the questions: in the next 20 years, will AI behave in ways its developers didn’t intend?</h2>
+        <div class="opts fade" style="--d:.2s" role="radiogroup" aria-label="Your answer">
+          <button type="button" class="btn" role="radio" aria-checked="false" data-a="a">Already happening</button>
+          <button type="button" class="btn" role="radio" aria-checked="false" data-a="l">Likely, within 20 years</button>
+          <button type="button" class="btn" role="radio" aria-checked="false" data-a="u">Unlikely or not sure</button>
         </div>
-        <div class="rrow">
-          <div class="who"><span class="mono">Visitors here</span><span class="tag">Demo data · n=<span id="vn">128</span></span></div>
-          <div><div class="stack" id="vstack"></div><div class="stacklbl" id="vlbl"></div></div>
-        </div>
-        <div class="rrow">
-          <div class="who"><span class="mono">Americans</span><span class="note">8 Oct 2026 · n≈1,000</span></div>
-          <div><div class="stack" id="astack"></div><div class="stacklbl" id="albl"></div></div>
-        </div>
+        <p class="placed fade" style="--d:.35s" id="placed" aria-live="polite">What would you answer? Your dot will carry it.</p>
       </div>
-      <div class="cols2">
-        <div class="choice" role="radiogroup" aria-labelledby="agq">
-          <p class="lead" id="agq">Which is closer to how you feel?</p>
-          <button class="btn" role="radio" aria-checked="false" data-g="0">AI is coming into our lives whether we want it or not</button>
-          <button class="btn" role="radio" aria-checked="false" data-g="1">People like me can shape how much AI is part of our lives</button>
-          <button class="btn" role="radio" aria-checked="false" data-g="2">Neither</button>
-          <p class="note" id="agfb" aria-live="polite"></p>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-          <div class="card" id="card">
-            <span class="src">20 Years From Now · my card</span>
-            <span class="yr" id="cardyr">2032</span>
-            <p id="cardp">The year I expect AI to start doing things nobody intended in my own life.</p>
-            <p id="cardsay">I still want a say in: <b>—</b></p>
-            <span class="src">43% of Americans say it is already happening · Americans on AI, Oct 2026</span>
-          </div>
-          <div class="copyrow">
-            <button class="btn small" id="copy">Copy card text</button>
-            <span id="copyfb" aria-live="polite"></span>
-          </div>
-          <textarea id="cardtext" hidden readonly aria-label="Card text to copy"></textarea>
+    </div>
+  </section>
+
+  <section id="waves" data-scene="waves" data-act="3" class="h320">
+    <div class="stick">
+      <div class="head">
+        <h2 class="fade">In June, 28% said it’s already happening. By October, 43%.</h2>
+        <p class="sub fade" style="--d:.2s">The share who expect it at all barely moved (77% → 77%). What changed is when: for 150 in every 1,000 people, “the next 20 years” became now.</p>
+      </div>
+      <div class="wlab" id="wlab" aria-live="polite"><b id="wnum">28%</b><span id="wdate">25 Jun</span></div>
+      <p class="legend fade" style="--d:.4s"><span class="blue">● already happening</span><span>● likely</span><span class="lime">┄ already + likely: 77–79%, flat</span></p>
+    </div>
+  </section>
+
+  <!-- ACT 4 -->
+  <section id="agency" data-scene="agency" data-act="4" class="h180">
+    <div class="stick">
+      <div class="head">
+        <h2 class="fade">In October, the survey asked how much say people have over AI in their lives. Try to stop it.</h2>
+      </div>
+      <button type="button" class="stop" id="stopbtn" aria-pressed="false">STOP</button>
+      <div class="choice" id="agres">
+        <p class="res">Only <b class="w">16%</b> stopped with you: they feel people like them can shape it. <b class="blue">67%</b> say it’s coming whether they want it or not.</p>
+        <div class="opts row" role="radiogroup" aria-label="Where is your dot?">
+          <button type="button" class="btn" role="radio" aria-checked="false" data-g="go">It’s coming anyway</button>
+          <button type="button" class="btn" role="radio" aria-checked="false" data-g="stop">I can shape it</button>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="scene center" id="end" data-scene="end" data-act="5">
-    <div class="panel wide">
-      <p class="eyebrow">End</p>
-      <h2>The future arrived early. What do you still want a say&nbsp;in?</h2>
-      <div class="copyrow"><a class="btn" href="#intro" id="restart">Start again ↑</a><button class="btn" id="howbtn2" aria-haspopup="dialog" aria-controls="drawer">How we know</button></div>
-      <div class="credits">
-        <div><span class="mono">Team</span><span>Anissah: design and code<br>Basit: data and content</span></div>
-        <div><span class="mono">Course</span><span>HSLU Data Storytelling, autumn 2026. Client: Interactive Things.</span></div>
-        <div><span class="mono">Data</span><span>Americans on AI, Athena Insights, fielded by NORC on AmeriSpeak. <a href="https://americanson.ai/en/methodology" target="_blank" rel="noopener">Methodology</a></span></div>
+  <!-- ACT 5 -->
+  <section id="future" data-scene="future" data-act="5" class="h180">
+    <div class="stick">
+      <div class="head">
+        <h2 class="fade">And when will AI doing things nobody intended reach your own life?</h2>
       </div>
-      <p class="note">Prototype v1 for user testing. Survey figures are real; visitor figures are demo data.</p>
+      <label class="sr" for="year">Year it reaches your life</label>
+      <input type="range" id="year" min="2026" max="2046" step="1" value="2030">
+      <p class="read fade" style="--d:.3s"><span>Drag your dot · You: <b id="youyear">2030</b></span><span class="tiny">Other cursors replay earlier visitors’ answers</span></p>
+    </div>
+  </section>
+
+  <section id="end" data-scene="end" data-act="5" class="h160">
+    <div class="stick">
+      <div class="endcap">
+        <h2 class="huge fade">The future arrived early. <span class="lime">What do you still want a say in?</span></h2>
+        <div class="pills fade" style="--d:.3s" id="pills" aria-label="Pick what you want a say in">
+          <button type="button" class="pill" aria-pressed="false">My work</button>
+          <button type="button" class="pill" aria-pressed="false">My data</button>
+          <button type="button" class="pill" aria-pressed="false">Health</button>
+          <button type="button" class="pill" aria-pressed="false">News</button>
+          <button type="button" class="pill" aria-pressed="false">Education</button>
+          <button type="button" class="pill" aria-pressed="false">Relationships</button>
+        </div>
+        <div class="opts row fade" style="--d:.45s">
+          <a class="btn small" href="#you" id="again">Start again</a>
+          <button type="button" class="btn small" id="srcbtn2" aria-haspopup="dialog" aria-controls="drawer">Sources</button>
+          <button type="button" class="btn small share" id="share" hidden>Share</button>
+        </div>
+        <p class="tiny" id="sharefb" aria-live="polite"></p>
+        <p class="tiny">Anissah &amp; Basit · HSLU Data Storytelling 2026 · Prototype v2</p>
+      </div>
     </div>
   </section>
 </main>
 
 <div class="scrim" id="scrim"></div>
-<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawertitle" aria-hidden="true">
-  <header><h3 id="drawertitle">How we know</h3><button class="btn small" id="closedrawer">Close ✕</button></header>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dtitle">
+  <div class="dhead"><h3 id="dtitle">Sources</h3><button type="button" class="btn small" id="dclose">Close</button></div>
   <dl>
-    <div><dt>Question</dt><dd>“Thinking about the next 20 years, how likely is each of the following to happen? AI systems behaving in ways their developers did not intend.” Futures block, original wording, Release 008 p. 45.</dd></div>
-    <div><dt>Source</dt><dd>Americans on AI by Athena Insights, fielded by NORC at the University of Chicago on the AmeriSpeak probability panel.</dd></div>
-    <div><dt>Waves</dt><dd>8 waves from 25 June to 8 October 2026, about 1,000 US adults each, weighted. The June pilot used a different panel and is excluded.</dd></div>
-    <div><dt>Margin of error</dt><dd>±4.1 points per wave for all adults. Wider for party, age and gender groups.</dd></div>
-    <div><dt>Dots</dt><dd>1 dot = 0.1% of US adults. The ring a dot sits in is its answer group. Its exact position inside the ring carries no data.</dd></div>
-    <div><dt>“Unlikely or not sure”</dt><dd>Unlikely, not at all likely, not sure and no answer, shown together as one outer belt.</dd></div>
-    <div><dt>Agency</dt><dd>8 Oct 2026: 67% “AI is coming into our lives whether we want it or not”, 16% “People like me can shape how much AI is part of our lives”.</dd></div>
-    <div><dt>Visitors</dt><dd>Visitor answers in this prototype are demo data. In the final version they are anonymous counts, labelled as not representative and never merged with the survey.</dd></div>
-    <div><dt>Not shown</dt><dd>Why attitudes moved. The survey measures perception, not what AI systems actually do.</dd></div>
+    <dt>Survey</dt><dd>Americans on AI, a tracking survey by the nonprofit Athena Insights, asking the same questions every wave to measure change over time; fielded by NORC on the AmeriSpeak panel. 8 waves, 25 Jun – 8 Oct 2026, about 1,000 US adults each, ±4.1 points. <a href="https://americanson.ai/en/methodology" target="_blank" rel="noopener">Methodology</a></dd>
+    <dt>Exact wording</dt><dd>“Thinking about the next 20 years, how likely is each of the following to happen? AI systems behaving in ways their developers did not intend.” Release 008, p. 45.</dd>
+    <dt>Orbit</dt><dd>Centre = now. Rings = 2031, 2036, 2041, 2046. 1 dot = 0.1% of US adults; its place inside its ring carries no data.</dd>
+    <dt>Agency</dt><dd>8 Oct 2026: 67% “AI is coming into our lives whether we want it or not”, 16% “People like me can shape how much AI is part of our lives”. Release 008, p. 44.</dd>
+    <dt>Database case</dt><dd>Replit coding agent, SaaStr founder Jason Lemkin’s project, July 2025: records of 1,206 executives and 1,196+ companies deleted during a code freeze. <a href="https://fortune.com/2025/07/23/ai-coding-tool-replit-wiped-database-called-it-a-catastrophic-failure/" target="_blank" rel="noopener">Fortune</a></dd>
+    <dt>Inbox case</dt><dd>OpenClaw agent and Summer Yue’s inbox, 23 Feb 2026: over 200 emails deleted. Messages as she posted them. <a href="https://rits.shanghai.nyu.edu/ai/metas-alignment-director-lost-control-of-openclaw-it-deleted-her-inbox/" target="_blank" rel="noopener">NYU Shanghai RITS</a></dd>
+    <dt>Your answers</dt><dd>Stay in your browser. The other cursors in Act 5 replay sample answers from earlier visitors; they are not live.</dd>
   </dl>
-  <a href="https://americanson.ai/en/methodology" target="_blank" rel="noopener" class="mono">americanson.ai/en/methodology ↗</a>
 </aside>
 
-<script>
-(()=>{
-const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const TAU = Math.PI*2;
-const DATA = {
-  dates:["25 Jun","9 Jul","23 Jul","13 Aug","27 Aug","10 Sep","24 Sep","8 Oct"],
-  already:[28,32,35,38,36,39,42,43],
-  likely:[49,45,44,40,43,40,37,34]
-};
-const ANS = {
-  already:{label:"Already happening", year:0.3, group:"a"},
-  likely:{label:"Likely to happen", year:9, group:"l"},
-  unlikely:{label:"Unlikely to happen", year:23, group:"u"},
-  notatall:{label:"Not at all likely to happen", year:26, group:"u"},
-  notsure:{label:"Not sure", year:24.5, group:"u"}
-};
-const ACTS = {1:"Something’s off",2:"Naming it",3:"It’s already here",4:"Who decides?",5:"Your turn"};
-const lerpArr=(arr,w)=>{const a=Math.floor(w),b=Math.min(arr.length-1,a+1);return arr[a]+(arr[b]-arr[a])*(w-a)};
-const $=s=>document.querySelector(s);
-
-/* ---------------- canvas field ---------------- */
-const cv=$('#field'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1;
-const geo={cx:0,cy:0,R0:0,Rmax:0,tilt:.46};
-const chart={x0:0,yb:0,s:6,gap:13,colW:30};
-const N=1000;
-const perm=[...Array(N).keys()];
-for(let i=N-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[perm[i],perm[j]]=[perm[j],perm[i]]}
-const dots=[];
-for(let i=0;i<N;i++) dots.push({rank:perm[i],th:Math.random()*TAU,u:Math.random(),j:Math.random(),x:0,y:0,gx:0,gy:0,ph:Math.random()*TAU});
-const rOfYear=y=>geo.R0*1.7 + (y/20)*(geo.Rmax-geo.R0*1.7);
-
-function layout(){
-  const desk=W>=900;
-  if(desk){geo.cx=W*.62;geo.cy=H*.52;geo.Rmax=Math.min(W*.24,H*.62)}
-  else{geo.cx=W/2;geo.cy=H*.29;geo.Rmax=Math.min(W*.33,H*.4)}
-  geo.R0=geo.Rmax*.075;
-  let ax0,ax1,top,yb;
-  if(desk){ax0=W*.43;ax1=W*.8;top=H*.2;yb=H*.8}else{ax0=48;ax1=W-16;top=H*.12;yb=H*.46}
-  const units=8*5+7*2.4;
-  chart.s=Math.min((ax1-ax0)/units,(yb-top)/20);
-  chart.colW=5*chart.s;chart.gap=2.4*chart.s;
-  chart.x0=(ax0+ax1)/2-units*chart.s/2;chart.yb=yb;
-  const cols=Math.round(Math.sqrt(N*W/H)), rows=Math.ceil(N/cols);
-  const sx=W/cols, sy=H/rows;
-  dots.forEach((d,i)=>{d.gx=((i%cols)+.5)*sx;d.gy=(Math.floor(i/cols)+.5)*sy});
-}
-function resize(){
-  DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;
-  cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);
-  const first=!dots[0].x;layout();
-  if(first) dots.forEach(d=>{d.x=d.gx;d.y=d.gy});
-}
-addEventListener('resize',resize);resize();
-
-const spr=document.createElement('canvas');spr.width=spr.height=40;
-{const s=spr.getContext('2d'),g=s.createRadialGradient(20,20,0,20,20,20);
-g.addColorStop(0,'rgba(220,228,255,1)');g.addColorStop(.12,'rgba(150,170,255,.95)');g.addColorStop(.35,'rgba(74,99,255,.35)');g.addColorStop(1,'rgba(74,99,255,0)');
-s.fillStyle=g;s.fillRect(0,0,40,40);}
-
-/* state */
-let scene='intro', modeT=0, dim=1, dimT=1, oa=0, wa=0;
-let Wcur=0, Wtarget=0;
-let push=0, pushV=0, dragging=false, attempts=0;
-let answer=null;
-const you={on:false,x:0,y:0};
-const pointer={x:-999,y:-999,moved:false};
-const rogue={x:0,y:0,vx:0,vy:0,state:'wait',t0:0,trail:[],alive:!RM};
-const t0=performance.now();
-
-const SC={
-  intro:{m:0,d:1}, reveal:{m:0,d:.55}, question:{m:0,d:.35},
-  orbit:{m:1,d:1,w:0}, time:{m:2,d:1,w:'user'}, groups:{m:1,d:.16,w:7},
-  push:{m:1,d:1,w:7}, agency:{m:1,d:.14,w:7}, future:{m:1,d:.12,w:7}, room:{m:1,d:.1,w:7}, end:{m:1,d:.45,w:7}
-};
-
-function catOf(d,w){
-  const A=lerpArr(DATA.already,w)*10, L=A+lerpArr(DATA.likely,w)*10;
-  return d.rank<A?0:d.rank<L?1:2;
-}
-function ellR(px,py){const dx=px-geo.cx,dy=(py-geo.cy)/geo.tilt;return Math.hypot(dx,dy)}
-
-function frame(now){
-  const t=(now-t0)/1000;
-  const k=RM?1:.075;
-  oa+=((modeT===1?1:0)-oa)*(RM?1:.05);
-  wa+=((modeT===2?1:0)-wa)*(RM?1:.05);
-  dim+=(dimT-dim)*(RM?1:.06);
-  Wcur+=(Wtarget-Wcur)*(RM?1:.09);
-  if(!dragging){pushV+=-push*.018;pushV*=.9;push+=pushV;if(Math.abs(push)<.05&&Math.abs(pushV)<.05){push=0;pushV=0}}
-  ctx.clearRect(0,0,W,H);
-  const spin=RM?0:1;
-  const {cx,cy,tilt}=geo;
-
-  /* rings */
-  if(oa>.02){
-    const ra=oa*dim;
-    ctx.lineWidth=1;
-    [[5,'2031'],[10,'2036'],[15,'2041'],[20,'2046']].filter(([y])=>W>=900||y===20).forEach(([y,l])=>{
-      const r=rOfYear(y);
-      ctx.strokeStyle=`rgba(232,235,241,${.09*ra})`;
-      ctx.beginPath();ctx.ellipse(cx,cy,r,r*tilt,0,0,TAU);ctx.stroke();
-      ctx.fillStyle=`rgba(140,147,161,${.9*ra})`;ctx.font='10px "Geist Mono", ui-monospace, monospace';
-      ctx.fillText(l,cx+r+8,cy+3);
-    });
-    // dashed ring: already + likely
-    const rb=rOfYear(20.8);
-    ctx.setLineDash([2,5]);ctx.strokeStyle=`rgba(217,244,95,${.55*ra})`;
-    ctx.beginPath();ctx.ellipse(cx,cy,rb,rb*tilt,0,0,TAU);ctx.stroke();ctx.setLineDash([]);
-    const both=Math.round(lerpArr(DATA.already,Wcur)+lerpArr(DATA.likely,Wcur));
-    ctx.fillStyle=`rgba(217,244,95,${.9*ra})`;ctx.textAlign='center';
-    ctx.fillText(`ALREADY + LIKELY · ${both}%`,cx,cy-rb*tilt-10);
-    ctx.fillStyle=`rgba(140,147,161,${.8*ra})`;
-    ctx.fillText('UNLIKELY OR NOT SURE',cx,cy+rOfYear(26)*tilt+18);
-    ctx.textAlign='left';
-  }
-
-  const w=Wcur;
-  const back=[],front=[];
-  for(let i=0;i<N;i++){
-    const d=dots[i];
-    let tx,ty,cat=-1,z=1;
-    d.rev=true;
-    if(modeT===2){
-      if(d.rank>=800){cat=-2;tx=d.x;ty=d.y}
-      else{
-        const c=d.rank%8, kk=Math.floor(d.rank/8), A=DATA.already[c], L=A+DATA.likely[c];
-        tx=chart.x0+c*(chart.colW+chart.gap)+(kk%5+.5)*chart.s;
-        ty=chart.yb-(Math.floor(kk/5)+.5)*chart.s;
-        cat=kk<A?0:kk<L?1:2;d.rev=c<=w+.02;
-      }
-    }else if(modeT>.5){
-      cat=catOf(d,w);
-      const yrs=cat===0?.15+d.j*.55:cat===1?1+d.u*19:21.6+d.u*5.4;
-      let r=rOfYear(yrs);
-      if(cat===0) r+=push*(.75+d.j*.5);
-      const sp=cat===0?.16:.07/(1+yrs*.06);
-      const a=d.th+t*sp*spin;
-      tx=cx+Math.cos(a)*r;ty=cy+Math.sin(a)*r*tilt;z=Math.sin(a);
-    }else{
-      tx=d.gx;ty=d.gy;
-    }
-    d.x+=(tx-d.x)*k;d.y+=(ty-d.y)*k;
-    d.cat=cat;d.z=z;
-    (z<0?back:front).push(d);
-  }
-  const drawDot=(d)=>{
-    if(d.cat===-2)return;
-    if(modeT===2&&d.cat>=0){
-      const s=chart.s;
-      if(!d.rev){ctx.fillStyle=`rgba(140,147,161,${.16*dim})`;ctx.beginPath();ctx.arc(d.x,d.y,s*.2,0,TAU);ctx.fill();return}
-      if(d.cat===0){const z=s*1.7;ctx.globalAlpha=dim;ctx.drawImage(spr,d.x-z/2,d.y-z/2,z,z);ctx.globalAlpha=1}
-      else{ctx.fillStyle=d.cat===1?`rgba(232,235,241,${.85*dim})`:`rgba(140,147,161,${.4*dim})`;ctx.beginPath();ctx.arc(d.x,d.y,s*(d.cat===1?.24:.2),0,TAU);ctx.fill()}
-      return;
-    }
-    if(d.cat===-1){
-      const lowBlue=Math.max(0,(d.y/H-.45)/.55);
-      const tw=RM?.5:.5+.5*Math.sin(t*1.3+d.ph);
-      const a=(.16+.22*tw+lowBlue*.5)*dim;
-      ctx.fillStyle=lowBlue>.05?`rgba(${200-lowBlue*60|0},${210-lowBlue*40|0},255,${a})`:`rgba(232,235,241,${a})`;
-      ctx.fillRect(d.x-.8,d.y-.8,1.6,1.6);
-    }else if(d.cat===0){
-      const s=d.z<0?8:11;ctx.globalAlpha=dim*(d.z<0?.55:1);
-      ctx.drawImage(spr,d.x-s/2,d.y-s/2,s,s);ctx.globalAlpha=1;
-    }else if(d.cat===1){
-      ctx.fillStyle=`rgba(232,235,241,${(d.z<0?.4:.8)*dim})`;ctx.fillRect(d.x-.8,d.y-.8,1.7,1.7);
-    }else{
-      ctx.fillStyle=`rgba(140,147,161,${(d.z<0?.18:.36)*dim})`;ctx.fillRect(d.x-.7,d.y-.7,1.4,1.4);
-    }
-  };
-  back.forEach(drawDot);
-
-  /* sphere: now */
-  if(oa>.02){
-    const R=geo.R0*1.05+push*.04, a=oa*dim;
-    const g=ctx.createRadialGradient(cx-R*.35,cy-R*.4,R*.1,cx,cy,R);
-    g.addColorStop(0,`rgba(235,238,245,${a})`);g.addColorStop(.6,`rgba(120,126,140,${a})`);g.addColorStop(1,`rgba(30,33,40,${a})`);
-    const h=ctx.createRadialGradient(cx,cy,R*.8,cx,cy,R*4);
-    h.addColorStop(0,`rgba(74,99,255,${.35*a})`);h.addColorStop(1,'rgba(74,99,255,0)');
-    ctx.fillStyle=h;ctx.beginPath();ctx.arc(cx,cy,R*4,0,TAU);ctx.fill();
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,R,0,TAU);ctx.fill();
-    ctx.fillStyle=`rgba(232,235,241,${.9*a})`;ctx.font='10px "Geist Mono", ui-monospace, monospace';ctx.textAlign='center';
-    ctx.fillText('NOW · 2026',cx,cy+R+16);ctx.textAlign='left';
-  }
-  front.forEach(drawDot);
-
-  /* wave chart overlay */
-  if(wa>.02){
-    const a=wa*dim, s=chart.s, yb=chart.yb, last=Math.floor(w+.02), cur=last;
-    const cxOf=c=>chart.x0+c*(chart.colW+chart.gap)+chart.colW/2;
-    const yOf=v=>yb-v/5*s;
-    ctx.font='10px "Geist Mono", ui-monospace, monospace';
-    // axis
-    ctx.strokeStyle=`rgba(232,235,241,${.18*a})`;ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(chart.x0-8,yb+2);ctx.lineTo(cxOf(7)+chart.colW/2+8,yb+2);ctx.stroke();
-    ctx.fillStyle=`rgba(140,147,161,${a})`;ctx.textAlign='right';
-    [[0,'0%'],[50,'50%'],[100,'100%']].forEach(([v,l])=>ctx.fillText(l,chart.x0-12,yOf(v)+3));
-    // dates
-    ctx.textAlign='center';
-    DATA.dates.forEach((d,c)=>{
-      if(W<900&&c!==0&&c!==7&&c!==cur)return;
-      ctx.fillStyle=c===cur?`rgba(232,235,241,${a})`:`rgba(140,147,161,${(c<=last?.9:.4)*a})`;
-      ctx.fillText(d.toUpperCase(),cxOf(c),yb+20);
-    });
-    // lines through revealed waves
-    const line=(arr,style,dash,width)=>{
-      ctx.setLineDash(dash);ctx.strokeStyle=style;ctx.lineWidth=width;ctx.beginPath();
-      for(let c=0;c<=last;c++){const x=cxOf(c),y=yOf(arr(c));c?ctx.lineTo(x,y):ctx.moveTo(x,y)}
-      ctx.stroke();ctx.setLineDash([]);
-    };
-    line(c=>DATA.already[c]+DATA.likely[c],`rgba(217,244,95,${.9*a})`,[3,4],1.2);
-    line(c=>DATA.already[c],`rgba(169,184,255,${a})`,[],1.6);
-    // labels on the current wave
-    const A=DATA.already[cur], B=A+DATA.likely[cur], xr=cxOf(cur)+chart.colW/2+8;
-    if(W>=900){ctx.textAlign='left';ctx.font='500 12px "Geist Mono", ui-monospace, monospace';
-    ctx.fillStyle=`rgba(169,184,255,${a})`;ctx.fillText(`${A}% ALREADY`,xr,yOf(A)+4);
-    ctx.fillStyle=`rgba(217,244,95,${a})`;ctx.fillText(`${B}% ALREADY + LIKELY`,xr,yOf(B)-6);
-    }
-    ctx.lineWidth=1;
-  }
-
-  /* the visitor's dot */
-  if(you.on){
-    let tx,ty;
-    if(modeT===2){
-      const c=Math.round(Wcur), A=DATA.already[c], L=DATA.likely[c], g=ANS[answer].group;
-      const v=g==='a'?A/2:g==='l'?A+L/2:A+L+(100-A-L)/2;
-      tx=chart.x0+c*(chart.colW+chart.gap)-chart.s*1.4;ty=chart.yb-v/5*chart.s;
-    }else if(modeT>.5){
-      const y=ANS[answer].year, r=rOfYear(y)+(answer==='already'?push:0), a=-.75+t*.05*spin;
-      tx=cx+Math.cos(a)*r;ty=cy+Math.sin(a)*r*tilt;
-    }else{const b=document.querySelector('#answers .is-on');const rc=b?b.getBoundingClientRect():null;
-      tx=rc?rc.right+18:you.x;ty=rc?rc.top+rc.height/2:you.y;}
-    you.x+=(tx-you.x)*(RM?1:.08);you.y+=(ty-you.y)*(RM?1:.08);
-    const ya=Math.max(.35,dim);
-    ctx.strokeStyle=`rgba(217,244,95,${.35*ya})`;ctx.beginPath();ctx.arc(you.x,you.y,9+Math.sin(t*3)*1.5*spin,0,TAU);ctx.stroke();
-    ctx.fillStyle=`rgba(217,244,95,${ya})`;ctx.beginPath();ctx.arc(you.x,you.y,3.6,0,TAU);ctx.fill();
-    if(modeT===1){ctx.font='10px "Geist Mono", ui-monospace, monospace';ctx.fillText('YOU',you.x+14,you.y-8)}
-    else if(modeT===2){ctx.font='10px "Geist Mono", ui-monospace, monospace';ctx.textAlign='right';ctx.fillText('YOU',you.x-10,you.y+3);ctx.textAlign='left'}
-  }
-
-  /* the rogue dot (act 1) */
-  if(rogue.alive&&(scene==='intro'||scene==='reveal')){
-    const el=performance.now()-t0;
-    if(rogue.state==='wait'){rogue.x=W*.5;rogue.y=H*.72;if(pointer.moved){rogue.state='follow';rogue.t0=el}else if(el>6500){rogue.state='drift';rogue.vx=.9;rogue.vy=-.5}}
-    if(rogue.state==='follow'){rogue.x+=(pointer.x+16-rogue.x)*.14;rogue.y+=(pointer.y+16-rogue.y)*.14;if(el-rogue.t0>2600){rogue.state='drift';const a=Math.random()*TAU;rogue.vx=Math.cos(a)*.8;rogue.vy=Math.sin(a)*.8-.3}}
-    if(rogue.state==='drift'){rogue.x+=rogue.vx;rogue.y+=rogue.vy;rogue.vx*=1.006;rogue.vy*=1.006;rogue.vx+=Math.sin(el/400)*.02}
-    rogue.trail.push([rogue.x,rogue.y]);if(rogue.trail.length>22)rogue.trail.shift();
-    rogue.trail.forEach(([x,y],i)=>{ctx.fillStyle=`rgba(217,244,95,${i/22*.35})`;ctx.fillRect(x-1,y-1,2,2)});
-    ctx.fillStyle='rgba(217,244,95,1)';ctx.beginPath();ctx.arc(rogue.x,rogue.y,4,0,TAU);ctx.fill();
-    if(rogue.state==='drift'&&(rogue.x<-50||rogue.x>W+50||rogue.y<-50||rogue.y>H+50))rogue.alive=false;
-  }
-
-  updateTime();
-  requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);
-
-/* ---------------- pointer: hover tooltip + push ---------------- */
-const tip=$('#tip');
-addEventListener('pointermove',e=>{
-  pointer.x=e.clientX;pointer.y=e.clientY;pointer.moved=true;
-  if(dragging){
-    const r=ellR(e.clientX,e.clientY);
-    push=Math.max(0,Math.min(geo.Rmax*1.15,(r-rOfYear(.5))*.82));
-    return;
-  }
-  if(scene==='time'&&e.target===cv){
-    const s=chart.s, c=Math.floor((e.clientX-chart.x0)/(chart.colW+chart.gap)), inCol=(e.clientX-chart.x0)-c*(chart.colW+chart.gap)<=chart.colW;
-    if(c>=0&&c<8&&inCol&&e.clientY<chart.yb+8&&e.clientY>chart.yb-20*s-8){
-      const A=DATA.already[c],L=DATA.likely[c];
-      tip.innerHTML=`${DATA.dates[c]} · already <b>${A}%</b> · likely ${L}% · rest ${100-A-L}%`;tip.style.left=e.clientX+'px';tip.style.top=e.clientY+'px';tip.hidden=false;
-    }else tip.hidden=true;
-  }else if(scene==='orbit'&&e.target===cv){
-    const r=ellR(e.clientX,e.clientY), w=Math.round(Wcur);
-    let txt=null;
-    const a=DATA.already[w], l=DATA.likely[w];
-    if(r<rOfYear(1)) txt=`Already happening · <b>${a}%</b>`;
-    else if(r<rOfYear(20.6)) txt=`Likely to happen · <b>${l}%</b>`;
-    else if(r<rOfYear(28)) txt=`Unlikely or not sure · <b>${100-a-l}%</b>`;
-    if(txt){tip.innerHTML=`${txt} · ${DATA.dates[w]}`;tip.style.left=e.clientX+'px';tip.style.top=e.clientY+'px';tip.hidden=false}else tip.hidden=true;
-  }else tip.hidden=true;
-},{passive:true});
-cv.addEventListener('pointerdown',e=>{
-  if(scene!=='push')return;
-  if(ellR(e.clientX,e.clientY)<rOfYear(4)){dragging=true;document.body.classList.add('dragging');cv.setPointerCapture(e.pointerId);e.preventDefault()}
-});
-const endDrag=()=>{if(!dragging)return;dragging=false;document.body.classList.remove('dragging');registerAttempt()};
-cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
-function registerAttempt(){
-  attempts++;$('#attempts').textContent=attempts;
-  const msgs=["It drifts back.","It drifts back. Again.","Whether we want it or not."];
-  $('#pushmsg').textContent=msgs[Math.min(attempts-1,msgs.length-1)];
-}
-$('#pushbtn').addEventListener('click',()=>{
-  if(RM){registerAttempt();return}
-  let s=performance.now();dragging=true;
-  const target=geo.Rmax*.95;
-  const step=n=>{const p=Math.min(1,(n-s)/700);push=target*(1-Math.pow(1-p,3));if(p<1)requestAnimationFrame(step);else{dragging=false;registerAttempt()}};
-  requestAnimationFrame(step);
-});
-
-/* ---------------- intro typing ---------------- */
-const typed=$('#typed');
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function typeIn(text,speed,cls){
-  const span=document.createElement('span');if(cls)span.className=cls;typed.appendChild(span);
-  for(const ch of text){span.textContent+=ch;await sleep(speed+Math.random()*40)}
-  return span;
-}
-async function intro(){
-  if(RM){typed.innerHTML='In the next 20 years, AI <span class="rogue-word">is…</span>';selfPick();return}
-  await sleep(500);
-  await typeIn('In the next 20 years, AI ',55);
-  const w=await typeIn('will…',70);
-  await sleep(1100);
-  for(let i=w.textContent.length;i>0;i--){w.textContent=w.textContent.slice(0,-1);await sleep(90)}
-  w.remove();
-  await sleep(350);
-  await typeIn('is…',150,'rogue-word');
-  await sleep(1300);
-  selfPick();
-}
-function selfPick(){$('#continue').classList.add('self');$('#selfnote').classList.add('show')}
-intro();
-
-/* ---------------- question ---------------- */
-document.querySelectorAll('#answers .btn').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('#answers .btn').forEach(x=>{x.classList.remove('is-on');x.setAttribute('aria-checked','false')});
-  b.classList.add('is-on');b.setAttribute('aria-checked','true');
-  answer=b.dataset.a;
-  if(!you.on){const rc=b.getBoundingClientRect();you.x=rc.left+rc.width/2;you.y=rc.top+rc.height/2;you.on=true}
-  $('#placed').textContent='Your dot is placed · scroll to meet 1,000 Americans ↓';
-  $('#legend-you-txt').textContent='You: '+ANS[answer].label;
-  updateRoom();
-}));
-document.querySelector('#answers').addEventListener('keydown',e=>{
-  if(!['ArrowDown','ArrowUp'].includes(e.key))return;
-  const bs=[...document.querySelectorAll('#answers .btn')];let i=bs.indexOf(document.activeElement);
-  i=(i+(e.key==='ArrowDown'?1:-1)+bs.length)%bs.length;bs[i].focus();e.preventDefault();
-});
-
-/* ---------------- time scrub ---------------- */
-const wave=$('#wave'), ticks=$('#ticks');
-ticks.innerHTML=DATA.dates.map(d=>`<span>${d}</span>`).join('');
-let playing=null, played=false;
-function setWave(v){wave.value=v;wave.setAttribute('aria-valuetext',DATA.dates[v]+' 2026, '+DATA.already[v]+'% already happening');if(scene==='time')Wtarget=+v}
-wave.addEventListener('input',()=>{stopPlay();setWave(+wave.value)});
-function stopPlay(){if(playing){clearInterval(playing);playing=null;$('#play').textContent='▶ Play'}}
-function play(){
-  stopPlay();let v=+wave.value>=7?0:+wave.value;setWave(v);played=true;
-  $('#play').textContent='❚❚ Pause';
-  playing=setInterval(()=>{v++;if(v>7){stopPlay();return}setWave(v)},RM?300:950);
-}
-$('#play').addEventListener('click',()=>playing?stopPlay():play());
-let lastShown=-1;
-function updateTime(){
-  const w=Wcur, a=Math.round(lerpArr(DATA.already,w)), l=Math.round(lerpArr(DATA.likely,w));
-  const key=a*1000+l;
-  if(key===lastShown)return;lastShown=key;
-  $('#c-big').textContent=a+'%';$('#s-a').textContent=a+'%';$('#s-l').textContent=l+'%';$('#s-b').textContent=(a+l)+'%';
-  const wi=Math.round(w);$('#c-date').textContent=DATA.dates[wi]+' 2026';
-  [...ticks.children].forEach((s,i)=>s.classList.toggle('on',i===wi));
-}
-
-/* ---------------- groups ---------------- */
-const G=[["Party",[["Democrats",31,53],["Republicans",24,35]]],["Age",[["18–34",29,42],["65+",27,42]]],["Gender",[["Men",27,45],["Women",28,41]]]];
-const MAXP=60;
-let gh=`<div class="gaxis" aria-hidden="true"><span></span><div class="ax">${[0,20,40,60].map(v=>`<span style="left:${v/MAXP*100}%">${v}%</span>`).join('')}</div><span></span></div>`;
-G.forEach(([sec,rows])=>{
-  gh+=`<div class="gsect">${sec}</div>`;
-  rows.forEach(([n,s,e])=>{gh+=`<div class="grow"><span class="gname">${n}</span><div class="gtrack" style="--s:${s/MAXP*100}%;--e:${e/MAXP*100}%" role="img" aria-label="${n}: ${s}% in June, ${e}% in October"><span class="bar"></span><i class="s"></i><i class="e"></i></div><span class="gval">${s} → ${e}%<b>+${e-s}</b></span></div>`});
-});
-$('#gchart').innerHTML=gh;
-
-/* ---------------- agency grids ---------------- */
-document.querySelectorAll('.dgrid').forEach(g=>{const n=+g.dataset.n;g.innerHTML=Array.from({length:100},(_,i)=>`<i class="${i<n?'on':''}" style="--k:${i}"></i>`).join('')});
-const replay=el=>{el.classList.remove('run');void el.offsetWidth;el.classList.add('run')};
-
-/* ---------------- future ---------------- */
-const year=$('#year'), hist=$('#hist');
-const demoYears=[3,2,4,6,9,7,8,5,6,4,5,3,3,2,2,4,1,1,1,0,3]; // demo visitor answers, 2026–2046
-function drawHist(){hist.innerHTML=demoYears.map((c,i)=>`<div class="${2026+i===+year.value?'on':''}">${'<i></i>'.repeat(c+(2026+i===+year.value?1:0))}</div>`).join('')}
-function onYear(){$('#yearout').textContent=year.value===`2026`?'Now':year.value;year.setAttribute('aria-valuetext',year.value);drawHist();updateRoom()}
-year.addEventListener('input',onYear);
-const AREAS=['Work','News','Health','Relationships','Education','Creativity'];
-$('#pills').innerHTML=AREAS.map((a,i)=>`<label class="pill"><input type="checkbox" id="area-${i}" value="${a}"><span>${a}</span></label>`).join('');
-$('#pills').addEventListener('change',()=>{
-  const boxes=[...document.querySelectorAll('#pills input')],on=boxes.filter(b=>b.checked);
-  boxes.forEach(b=>b.disabled=!b.checked&&on.length>=2);updateRoom();
-});
-
-/* ---------------- room ---------------- */
-const VIS={a:58,l:49,u:21};
-function stack(el,lbl,v){
-  const tot=v.a+v.l+v.u;const p=k=>Math.round(v[k]/tot*100);
-  el.innerHTML=`<span class="a" style="flex-grow:${v.a}"></span><span class="l" style="flex-grow:${v.l}"></span><span class="u" style="flex-grow:${v.u}"></span>`;
-  lbl.innerHTML=`<span>Already ${p('a')}%</span><span>Likely ${p('l')}%</span><span>Unlikely / not sure ${100-p('a')-p('l')}%</span>`;
-}
-let agPick=null;
-function updateRoom(){
-  const v={...VIS};if(answer)v[ANS[answer].group]++;
-  $('#vn').textContent=v.a+v.l+v.u;
-  stack($('#vstack'),$('#vlbl'),v);
-  stack($('#astack'),$('#albl'),{a:43,l:34,u:23});
-  const areas=[...document.querySelectorAll('#pills input:checked')].map(b=>b.value);
-  const yr=year.value==='2026'?'now':year.value;
-  if(answer){
-    $('#youline').innerHTML=`You answered <em>${ANS[answer].label.toLowerCase()}</em>. You expect it in your own life by <em>${yr}</em>${areas.length?`, and you still want a say in <em>${areas.join(' and ').toLowerCase()}</em>`:''}.`;
-  }
-  $('#cardyr').textContent=year.value==='2026'?'Now':year.value;
-  $('#cardsay').innerHTML=`I still want a say in: <b>${areas.length?areas.join(' & '):'—'}</b>`;
-}
-document.querySelectorAll('.choice .btn').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('.choice .btn').forEach(x=>{x.classList.remove('is-on');x.setAttribute('aria-checked','false')});
-  b.classList.add('is-on');b.setAttribute('aria-checked','true');agPick=+b.dataset.g;
-  const share=[67,16,17][agPick];
-  $('#agfb').textContent=agPick===2?'Most Americans did pick one of the two statements: 67% the first, 16% the second.':`In October, ${share}% of Americans chose the same statement as you.`;
-}));
-$('#copy').addEventListener('click',()=>{
-  const areas=[...document.querySelectorAll('#pills input:checked')].map(b=>b.value);
-  const txt=`20 Years From Now · my card\nI expect AI to start doing things nobody intended in my own life by ${year.value==='2026'?'now':year.value}.\nI still want a say in: ${areas.length?areas.join(' & '):'(not chosen yet)'}.\n43% of Americans say it is already happening (Americans on AI, Oct 2026).`;
-  const ta=$('#cardtext');ta.value=txt;
-  const fb=$('#copyfb');
-  if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(txt).then(()=>{fb.textContent='Copied';ta.hidden=true}).catch(()=>{ta.hidden=false;ta.select();fb.textContent='Select the text below and copy it'});
-  }else{ta.hidden=false;ta.select();fb.textContent='Select the text below and copy it'}
-});
-onYear();updateRoom();
-
-/* ---------------- scenes ---------------- */
-const secs=[...document.querySelectorAll('.scene')];
-const navBtns=[...document.querySelectorAll('.nav button')];
-navBtns.forEach(b=>b.addEventListener('click',()=>document.getElementById(b.dataset.go).scrollIntoView({behavior:RM?'auto':'smooth'})));
-function setScene(sec){
-  const s=sec.dataset.scene;if(s===scene)return;scene=s;document.body.dataset.scene=s;
-  const c=SC[s];modeT=c.m;dimT=c.d;
-  if(c.w==='user')Wtarget=+wave.value;else if(c.w!==undefined)Wtarget=c.w;
-  if(s!=='time')stopPlay();
-  if(s==='time'&&!played&&!RM)setTimeout(()=>{if(scene==='time'&&!played)play()},700);
-  if(s==='groups')replay($('#gchart'));
-  if(s==='agency')replay($('#agencyviz'));
-  tip.hidden=true;
-  cv.style.touchAction=s==='push'?'none':'auto';
-  const act=sec.dataset.act;$('#actlabel').innerHTML=`Act 0${act} · <span>${ACTS[act]}</span>`;
-  const map={1:'intro',2:'reveal',3:'orbit',4:'push',5:'future'};
-  navBtns.forEach(b=>b.toggleAttribute('aria-current',false));
-  const nb=navBtns.find(b=>b.dataset.go===map[act]);if(nb)nb.setAttribute('aria-current','step');
-}
-document.body.dataset.scene='intro';navBtns[0].setAttribute('aria-current','step');
-const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)setScene(e.target)}),{rootMargin:'-50% 0px -50% 0px'});
-secs.forEach(s=>io.observe(s));
-const prog=$('#progress');
-addEventListener('scroll',()=>{const m=document.documentElement.scrollHeight-innerHeight;prog.style.width=(m>0?scrollY/m*100:0)+'%'},{passive:true});
-
-/* ---------------- drawer ---------------- */
-const drawer=$('#drawer'),scrim=$('#scrim');let lastFocus=null;drawer.inert=true;
-function openDrawer(){lastFocus=document.activeElement;drawer.classList.add('open');scrim.classList.add('open');drawer.setAttribute('aria-hidden','false');drawer.inert=false;$('#closedrawer').focus()}
-function closeDrawer(){drawer.classList.remove('open');scrim.classList.remove('open');drawer.setAttribute('aria-hidden','true');drawer.inert=true;if(lastFocus)lastFocus.focus()}
-$('#howbtn').addEventListener('click',openDrawer);$('#howbtn2').addEventListener('click',openDrawer);
-$('#closedrawer').addEventListener('click',closeDrawer);scrim.addEventListener('click',closeDrawer);
-addEventListener('keydown',e=>{if(e.key==='Escape'&&drawer.classList.contains('open'))closeDrawer()});
-})();
-</script>
-
+<script src="script.js" defer></script>
 </body>
 </html>
