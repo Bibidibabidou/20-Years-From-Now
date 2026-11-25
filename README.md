@@ -4,7 +4,7 @@
 
 An interactive data story about AI behaviour and agency, built for the HSLU Data Storytelling module (autumn 2026) with Interactive Things as client.
 
-**Live prototype:** https://YOUR-USERNAME.github.io/20-years-from-now/
+**Live prototype:** https://bibidibabidou.github.io/20-years-from-now/
 
 ## The story
 
